@@ -1,0 +1,12 @@
+*.tiff
+*.tif
+*.png
+*.shp
+*.prj
+*.shx
+*.dbf
+*.Rhistory
+*.txt
+*.csv
+*.xlsx
+*.cpg
