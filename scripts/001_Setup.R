@@ -1,41 +1,3 @@
-# Load required libraries
-library(tidyverse); library(data.table); library(sf);
-library(sp); library(rgdal); library(geosphere);
-library(nimble);library(raster); library(lubridate);
-library(ggpubr); library(cowplot); library(scatterpie);
-library(ggforce); library(exactextractr); library(gridExtra);
-library(grid); library(parallel); library(coda); library(mcmcr);
-library(purrr); library(taxotools); library(taxize);
-library(terra); library(ggnewscale); library(pals);
-library(colorspace); library(jagsUI); library(biscale)
-library(gganimate); library(nimble); library(ggforce);
-library(pbapply); library(egg); library(HDInterval);
-library(GGally); library(MCMCvis); library(grid); library(ggrepel);
-library(fasterize); library(ape); library(rotl); library(ggtree); library(tidytree)
-
-# Set a global seed for reproducibility
-set.seed(04262022)
-
-# Use legacy sf geometry
-sf_use_s2(FALSE)
-
-# Source my custom helper functions
-source("../../../000_DataResources/scripts/helperFunctions_shirey.R")
-
-# Set project CRS to North American Equal Area Albers Conic
-crs_1 <- "+proj=aea +lat_1=20 +lat_2=60 +lat_0=40 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m"
-
-# Load the base map and reproject to the project reference system
-basemap <- st_read("../data/shapefile/ne_10m_land.shp") %>%
-  st_crop(xmin=-180, xmax=-50,
-          ymin=45, ymax=80)
-
-wgs_crop <- st_bbox(basemap)
-
-basemap <- basemap %>% 
-  st_transform(crs_1) %>%
-  st_make_valid()
-
 # Read in the species list for species to include in this analysis, remove from this list species
 # that do not have a corresponding range map.
 sp_list <- read.csv("../data/taxa/species_list.csv") %>%
@@ -45,24 +7,21 @@ sp_list <- read.csv("../data/taxa/species_list.csv") %>%
 # prefiltering as well as name harmonization with the species list.
 # Import and wrangle GBIF data
 gbif <- fread("../data/occurrence/gbif_occ.txt", header=TRUE, stringsAsFactors=FALSE, sep="\t", quote="") %>%
-  dplyr::mutate(species=str_replace(species, "Clossiana", "Boloria"),
-                species=str_replace(species, "Speyeria", "Argynnis")) %>%
+  dplyr::mutate(species=str_replace(species, "Clossiana", "Boloria")) %>%
   dplyr::select(species, year, decimalLongitude, decimalLatitude, basisOfRecord)
 
 # Import and wrangle iDigBio data
 idig <- fread("../data/occurrence/idig_occ.csv", header=TRUE, stringsAsFactors=FALSE, sep=",") %>%
   dplyr::mutate(`dwc:specificEpithet`=word(`dwc:specificEpithet`, -1)) %>%
   dplyr::mutate(species=str_to_sentence(paste(`dwc:genus`, `dwc:specificEpithet`))) %>%
-  dplyr::mutate(species=str_replace(species, "Clossiana", "Boloria"),
-                species=str_replace(species, "Speyeria", "Argynnis")) %>%
+  dplyr::mutate(species=str_replace(species, "Clossiana", "Boloria")) %>%
   dplyr::select(species, year=`dwc:year`, decimalLongitude=`dwc:decimalLongitude`,
                 decimalLatitude=`dwc:decimalLatitude`, basisOfRecord='dwc:basisOfRecord')
 
 # Import and wrangle SCAN data
 scan <- fread("../data/occurrence/scan_occ.csv", header=TRUE, stringsAsFactors=FALSE, sep=",") %>%
   dplyr::mutate(species=str_to_sentence(paste(genus, specificEpithet))) %>%
-  dplyr::mutate(species=str_replace(species, "Clossiana", "Boloria"),
-                species=str_replace(species, "Speyeria", "Argynnis")) %>%
+  dplyr::mutate(species=str_replace(species, "Clossiana", "Boloria")) %>%
   dplyr::select(species, year, decimalLongitude, decimalLatitude, basisOfRecord) %>%
   dplyr::filter(species!="", species!=" ", !is.na(species))
 
@@ -94,18 +53,55 @@ sp_list_thresh <- occ_join %>%
   dplyr::mutate(n=n()) %>%
   ungroup() %>%
   dplyr::select(species, n) %>%
-  dplyr::filter(n >= 500) %>%
+  dplyr::filter(n >= 800) %>%
   unique() %>%
   arrange(n)
 
-occ_join <- occ_join %>%
-  dplyr::filter(species %in% sp_list_thresh$species)
-
-saveRDS(occ_join, "../output/finalOccurrences.rds")
-
 sp_kept <- sp_list_thresh$species %>% as.data.frame()
 colnames(sp_kept) <- c("species")
+
+# Load the tree used in Earl et al. 2020
+my_tree <- ape::read.tree("../data/taxa/SupDryad_treepl.tre")
+my_tree$tip.label <- stringr::word(my_tree$tip.label, 3, 4, sep="_") %>%
+  str_replace("_", " ")
+
+# Prune the tree to select taxa
+taxa_drop <- my_tree$tip.label[my_tree$tip.label %!in% sp_kept$species]
+my_tree_prune <- ape::drop.tip(my_tree, taxa_drop, root.edge=1)
+
+sp_kept <- sp_kept[match(my_tree_prune$tip.label, sp_kept$species),] %>% as.data.frame()
+colnames(sp_kept) <- c("species")
+my_tree_prune$tip.label <- sp_kept$species
+
+my_tree <- my_tree_prune
+
+saveRDS(my_tree, "../output/tree_topology.rds")
+
+my_vcv <- vcv(my_tree)
+my_vcv <- my_vcv[sort(sp_kept$species), sort(sp_kept$species)]
+
+saveRDS(my_vcv, "../output/tree_vcv.rds")
+
+# Visualize the phylogenetic tree (as a sanity check before proceeding)
+tree_plot <- ggtree(my_tree_prune, layout="circular", branch.length="edge.length")+
+  geom_text2(aes(subset=!isTip, label=node))+
+  #geom_hilight(node=120, fill="#44bb99", alpha=0.6)+ # Hesperiidae
+  #geom_hilight(node=204, fill="#99ddff", alpha=0.6)+ # Lycaenidae
+  #geom_hilight(node=136, fill="#eedd88", alpha=0.6)+ # Pieridae
+  #geom_hilight(node=151, fill="#ffaabb", alpha=0.6)+ # Nymphalidae
+  #geom_hilight(node=226, fill="#ee8866", alpha=0.6)+ # Papilionidae
+  geom_tippoint(color="black")+
+  geom_tiplab(size=3, color="black", hjust=-0.05)
+tree_plot
+
+ggsave2("../output/supplemental/tree.png", tree_plot, dpi=350, height=12, width=14)
+
+occ_join <- occ_join %>%
+  dplyr::filter(species %in% sp_kept$species)
+saveRDS(occ_join, "../output/finalOccurrences.rds")
+
 sp_kept <- sp_kept %>%
+  dplyr::filter(species %!in% c("Pieris marginalis", "Agriades optilete")) %>%
   arrange(species) %>%
   dplyr::mutate(SPID=row_number()) %>%
   inner_join(dplyr::select(sp_list, lamasListName, rangeMapName), 
@@ -125,41 +121,6 @@ occ_sf <- left_join(occ_sf, sp_kept) %>%
 saveRDS(occ_sf, "../output/occ_sf.rds")
 
 message(paste("Modeling for", nrow(sp_kept), "unique species..."))
-message("Obtaining phylogentic tree from Open Tree of Life")
-
-# Pull a phylogenetic tree from Open Tree of Life for the modeled taxa.
-# Resolve names to best match (need to fix some manually, see below)
-tree_taxa <- tnrs_match_names(sp_kept$species)
-
-tree_taxa[105,]=tnrs_match_names("Papilio canadensis")
-tree_taxa[106,]=tnrs_match_names("Papilio eurymedon")
-tree_taxa[107,]=tnrs_match_names("Papilio rutulus")
-
-# Pull the phylogenetic tree from OTL, clean the names a bit
-my_tree <- tol_induced_subtree(ott_ids=tree_taxa$ott_id)
-my_tree$tip.label <- stringr::word(my_tree$tip.label, 1,2, sep="_") %>%
-  str_replace("_", " ")
-
-# Join the tree names to the overall Lamas names list for consistency
-tree_taxa[105,]$search_string <- "Pterourus canadensis"
-tree_taxa[106,]$search_string <- "Pterourus eurymedon"
-tree_taxa[107,]$search_string <- "Pterourus rutulus"
-tree_taxa$search_string <- str_to_sentence(tree_taxa$search_string)
-sp_kept <- sp_kept %>% left_join(tree_taxa, by=c("species"="search_string"))
-sp_kept <- sp_kept[match(my_tree$tip.label, sp_kept$unique_name),]
-my_tree$tip.label <- sp_kept$species
-
-# Visualize the phylogenetic tree (as a sanity check before proceeding)
-tree_plot <- ggtree(my_tree, layout="circular")+
-  geom_hilight(node=119, fill="#eedd88", alpha=0.6)+ # Pieridae
-  geom_hilight(node=182, fill="#99ddff", alpha=0.6)+ # Lycaenidae
-  geom_hilight(node=134, fill="#ee8866", alpha=0.6)+ # Nymphalidae
-  geom_hilight(node=220, fill="#ffaabb", alpha=0.6)+ # Papilionidae
-  geom_hilight(node=205, fill="#44bb99", alpha=0.6)+ # Hesperiidae
-  geom_tippoint(color="black")+
-  geom_tiplab(size=3, color="black", hjust=-0.05)
-
-ggsave2("../output/supplemental/tree.png", tree_plot, dpi=350, height=12, width=14)
 
 # Create a grid over the base map region, save these to .rds files.
 grid_50 <- st_make_grid(basemap, cellsize=50*1000) %>% st_sf() %>%
@@ -211,7 +172,7 @@ range <- range %>%
   arrange(binomial)
 st_crs(range) <- crs_1
 
-st_write(range, "../output/data/range_kept.shp")
+# st_write(range, "../output/data/range_kept.shp", append=FALSE)
 
 # Read in Bioclim data for average annual temperature (BIO1) and precipitation (BIO12). Using
 # these values, extract the mean into the species range for a sense of climatic adaptation.
@@ -247,6 +208,10 @@ range2 <- range %>% st_drop_geometry() %>%
   dplyr::select(binomial, ave_temp2, ave_precip2) %>%
   unique()
 
+range2 <- range2 %>% arrange(binomial) %>%
+  left_join(sp_kept, by=c("binomial"="rangeMapName")) %>%
+  arrange(species)
+
 write.csv(range2, "../data/taxa/species_range_clim.csv")
 
 # Join the occurrence data to the grids and save into .rds files.
@@ -266,6 +231,10 @@ saveRDS(grid_200_occur, "../output/data/grid_200_occur.rds")
 # Intersect the ranges with the grid cells to constrain analysis to grid cells that fall
 # within species ranges. Write these to .rds files for later use. To make this not take
 # up all of your time, convert the ranges to rasters and then sample from there.
+
+range <- range %>% left_join(sp_kept, by=c("binomial"="rangeMapName")) %>%
+  arrange(species)
+
 range_ras <- fasterize::fasterize(sf=range,
                                   raster=BIO1,
                                   by="binomial")
@@ -275,7 +244,7 @@ grid_50_range <- exactextractr::exact_extract(range_ras, grid_50) %>%
 grid_list <- list()
 for(i in 1:nrow(grid_50)){
   grid_list[[i]] <- grid_50_range[[i]] %>%
-    summarise(across(1:115, sum, na.rm=TRUE)) >= 1 %>%
+    summarise(across(1:nrow(sp_kept), sum, na.rm=TRUE)) >= 1 %>%
     as.numeric()
 }
 grid_50_range <- do.call(rbind, grid_list)
@@ -285,7 +254,7 @@ grid_100_range <- exactextractr::exact_extract(range_ras, grid_100) %>%
 grid_list <- list()
 for(i in 1:nrow(grid_100)){
   grid_list[[i]] <- grid_100_range[[i]] %>%
-    summarise(across(1:115, sum, na.rm=TRUE)) >= 1 %>%
+    summarise(across(1:nrow(sp_kept), sum, na.rm=TRUE)) >= 1 %>%
     as.numeric()
 }
 grid_100_range <- do.call(rbind, grid_list)
@@ -296,7 +265,7 @@ grid_200_range <- exactextractr::exact_extract(range_ras, grid_200) %>%
 grid_list <- list()
 for(i in 1:nrow(grid_200)){
   grid_list[[i]] <- grid_200_range[[i]] %>%
-    summarise(across(1:115, sum, na.rm=TRUE)) >= 1 %>%
+    summarise(across(1:nrow(sp_kept), sum, na.rm=TRUE)) >= 1 %>%
     as.numeric()
 }
 grid_200_range <- do.call(rbind, grid_list)
@@ -304,5 +273,57 @@ grid_200_range <- do.call(rbind, grid_list)
 saveRDS(grid_50_range, "../output/data/grid_50_range.rds")
 saveRDS(grid_100_range, "../output/data/grid_100_range.rds")
 saveRDS(grid_200_range, "../output/data/grid_200_range.rds")
+
+# Load in climate raster data for minimum temperature and precipitation
+temp_his <- stack(list.files(path="../data/climate/minTemp/historical", pattern="*.tif", full.names=TRUE))
+temp <- stack(list.files(path="../data/climate/minTemp/", pattern="*.tif", full.names=TRUE))
+precip <- stack(list.files(path="../data/climate/precip", pattern="*.tif", full.names=TRUE))
+
+# Update NA values
+NAvalue(temp_his) <- -90
+NAvalue(temp) <- -90
+NAvalue(precip) <- -90
+
+# Resample the historical raster to include the same extent and resolution as the modern
+# temperature rasters
+temp_his <- raster::shift(temp_his, dy=0.5, dx=-360.5) %>%
+  raster::crop(extent(-170,-55,45,75))
+temp <- raster::shift(temp, dy=0, dx=-360)
+temp_his <- raster::resample(temp_his, temp)
+
+# Stack the temperature rasters
+temp <- stack(temp_his, temp)
+
+# Reproject the raster to the project CRS
+temp <- projectRaster(temp, crs=crs_1)
+precip <- projectRaster(precip, crs=crs_1)
+
+# Clip both rasters to only terrestrial records
+temp <- raster::mask(temp, basemap)
+precip <- raster::mask(precip, basemap)
+
+# Average climate raster data into grids
+grid_50_temp <- exactextractr::exact_extract(temp, grid_50, fun="mean") %>%
+  dplyr::mutate(GID=row_number())
+grid_100_temp <- exactextractr::exact_extract(temp, grid_100, fun="mean") %>%
+  dplyr::mutate(GID=row_number())
+grid_200_temp <- exactextractr::exact_extract(temp, grid_200, fun="mean") %>%
+  dplyr::mutate(GID=row_number())
+
+grid_50_precip <- exactextractr::exact_extract(precip, grid_50, fun="mean") %>%
+  dplyr::mutate(GID=row_number())
+grid_100_precip <- exactextractr::exact_extract(precip, grid_100, fun="mean") %>%
+  dplyr::mutate(GID=row_number())
+grid_200_precip <- exactextractr::exact_extract(precip, grid_200, fun="mean") %>%
+  dplyr::mutate(GID=row_number())
+
+# Save the climate rasters to .rds files for further use as covariates in the 
+# occupancy detection model
+saveRDS(grid_50_temp, "../output/data/temp50.rds")
+saveRDS(grid_100_temp, "../output/data/temp100.rds")
+saveRDS(grid_200_temp, "../output/data/temp200.rds")
+saveRDS(grid_50_precip, "../output/data/precip50.rds")
+saveRDS(grid_100_precip, "../output/data/precip100.rds")
+saveRDS(grid_200_precip, "../output/data/precip200.rds")
 
 message("Finished pre-processing all data, ready for model preperations...")
