@@ -1,13 +1,13 @@
 run.R2jags.model <- function(d,
-                             ni=8.1e4,
+                             ni=5.1e4,
                              nb=1e3,
-                             nt=2e2,
+                             nt=100,
                              nc=1){
 
   res <- jagsUI::jags.basic(data=d$my.constants,
-                            inits=d$my.inits,
+			    inits=list(d$my.inits),
                             parameters.to.save=d$my.params,
-                            model.file="model.txt",
+                            model.file="scripts/model.txt",
                             n.chains=nc,
                             n.thin=nt,
                             n.iter=ni,

@@ -101,7 +101,7 @@ occ_join <- occ_join %>%
 saveRDS(occ_join, "../output/finalOccurrences.rds")
 
 sp_kept <- sp_kept %>%
-  dplyr::filter(species %!in% c("Pieris marginalis", "Agriades optilete")) %>%
+  dplyr::filter(species %!in% c("Pieris marginalis", "Agriades optilete", "Celestrina ladon")) %>%
   arrange(species) %>%
   dplyr::mutate(SPID=row_number()) %>%
   inner_join(dplyr::select(sp_list, lamasListName, rangeMapName), 

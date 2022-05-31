@@ -11,9 +11,11 @@ library(colorspace); library(jagsUI); library(biscale)
 library(gganimate); library(nimble); library(ggforce);
 library(pbapply); library(egg); library(HDInterval);
 library(GGally); library(MCMCvis); library(grid); library(ggrepel);
-library(fasterize); library(ape); library(rotl); library(ggtree); 
+library(ape); library(rotl); library(ggtree); 
 library(tidytree); library(treeio); library(lessR); library(ggridges)
-library(png);
+library(png); library(tidytree); library(gridExtra)
+library(grid)
+library(gridtext)
 
 # Set a global seed for reproducibility
 set.seed(04262022)

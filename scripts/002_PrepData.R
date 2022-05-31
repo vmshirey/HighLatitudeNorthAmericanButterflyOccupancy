@@ -12,8 +12,7 @@ make.data <- function(tree=NULL, scale, imputeThres=1){
     # The spatial scale is 50x50km
     grid <- readRDS("../output/data/grid_50.rds")
     grid_range <- readRDS("../output/data/grid_50_range.rds")
-    grid_occur <- readRDS("../output/data/grid_50_occur.rds") %>%
-      sf::st_drop_geometry()
+    grid_occur <- readRDS("../output/data/grid_50_occur.rds")
     grid_temp <- readRDS("../output/data/temp50.rds")
     grid_precip <- readRDS("../output/data/precip50.rds")
     gridarea <- readRDS("../output/data/grid_50_area.rds") %>% as.vector()
@@ -23,8 +22,7 @@ make.data <- function(tree=NULL, scale, imputeThres=1){
     # The spatial scale is 100x100km
     grid <- readRDS("../output/data/grid_100.rds")
     grid_range <- readRDS("../output/data/grid_100_range.rds")
-    grid_occur <- readRDS("../output/data/grid_100_occur.rds") %>%
-      sf::st_drop_geometry()
+    grid_occur <- readRDS("../output/data/grid_100_occur.rds")
     grid_temp <- readRDS("../output/data/temp100.rds")
     grid_precip <- readRDS("../output/data/precip100.rds")
     gridarea <- readRDS("../output/data/grid_100_area.rds") %>% as.vector()
@@ -34,8 +32,7 @@ make.data <- function(tree=NULL, scale, imputeThres=1){
     # The spatial scale in 200x200km
     grid <- readRDS("../output/data/grid_200.rds")
     grid_range <- readRDS("../output/data/grid_200_range.rds")
-    grid_occur <- readRDS("../output/data/grid_200_occur.rds") %>%
-      sf::st_drop_geometry()
+    grid_occur <- readRDS("../output/data/grid_200_occur.rds")
     grid_temp <- readRDS("../output/data/temp200.rds")
     grid_precip <- readRDS("../output/data/precip200.rds")
     gridarea <- readRDS("../output/data/grid_200_area.rds") %>% as.vector()

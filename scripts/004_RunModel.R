@@ -1,6 +1,4 @@
-memory.limit(50000)
-
-library(tidyverse); library(rjags); library(jagsUI)
+library(tidyverse); library(R2jags);
 source("002_PrepData.R")
 source("003_ModelSpec.R")
 
@@ -8,9 +6,9 @@ source("003_ModelSpec.R")
 my_tree <- readRDS("../output/tree_vcv.rds")
 
 # Set the sampling parameters for JAGS
-ni <- 100
-nb <- 1
-nt <- 2
+ni <- 11000
+nb <- 1000
+nt <- 50
 nc <- 3
 
 # 200 x 200 km analysis
