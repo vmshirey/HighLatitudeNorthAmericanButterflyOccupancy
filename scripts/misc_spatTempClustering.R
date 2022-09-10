@@ -46,3 +46,5 @@ for(date_use in unique_dates){
 all_clusters <- rbindlist(cluster_lists)
 size_clusters <- table(all_clusters$cluster) %>% table()
 
+comm_proxy <- (1-size_clusters[1]/sum(size_clusters))
+

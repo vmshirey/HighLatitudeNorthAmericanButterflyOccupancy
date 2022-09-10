@@ -8,7 +8,7 @@ sp_list <- read.csv("../data/taxa/species_list.csv") %>%
 # Import and wrangle GBIF data
 gbif <- fread("../data/occurrence/gbif_occ.txt", header=TRUE, stringsAsFactors=FALSE, sep="\t", quote="") %>%
   dplyr::mutate(species=str_replace(species, "Clossiana", "Boloria")) %>%
-  dplyr::select(species, year, decimalLongitude, decimalLatitude, basisOfRecord)
+  dplyr::select(species, year, decimalLongitude, decimalLatitude, basisOfRecord, coordinateUncertaintyInMeters)
 
 # Import and wrangle iDigBio data
 idig <- fread("../data/occurrence/idig_occ.csv", header=TRUE, stringsAsFactors=FALSE, sep=",") %>%
@@ -16,19 +16,21 @@ idig <- fread("../data/occurrence/idig_occ.csv", header=TRUE, stringsAsFactors=F
   dplyr::mutate(species=str_to_sentence(paste(`dwc:genus`, `dwc:specificEpithet`))) %>%
   dplyr::mutate(species=str_replace(species, "Clossiana", "Boloria")) %>%
   dplyr::select(species, year=`dwc:year`, decimalLongitude=`dwc:decimalLongitude`,
-                decimalLatitude=`dwc:decimalLatitude`, basisOfRecord='dwc:basisOfRecord')
+                decimalLatitude=`dwc:decimalLatitude`, basisOfRecord='dwc:basisOfRecord', 
+                coordinateUncertaintyInMeters=`dwc:coordinateUncertaintyInMeters`)
 
 # Import and wrangle SCAN data
 scan <- fread("../data/occurrence/scan_occ.csv", header=TRUE, stringsAsFactors=FALSE, sep=",") %>%
   dplyr::mutate(species=str_to_sentence(paste(genus, specificEpithet))) %>%
   dplyr::mutate(species=str_replace(species, "Clossiana", "Boloria")) %>%
-  dplyr::select(species, year, decimalLongitude, decimalLatitude, basisOfRecord) %>%
+  dplyr::select(species, year, decimalLongitude, decimalLatitude, basisOfRecord, coordinateUncertaintyInMeters) %>%
   dplyr::filter(species!="", species!=" ", !is.na(species))
 
 # Merge the occurrences into a single data frame
 occ <- rbind(gbif, idig, scan)
 occ <- occ %>%
   dplyr::filter(species %in% sp_list$verbatimName) %>%
+  dplyr::filter(coordinateUncertaintyInMeters < 25000) %>%
   dplyr::distinct(species, year, decimalLongitude, decimalLatitude, .keep_all=TRUE) %>%
   dplyr::mutate(basisOfRecord=case_when(basisOfRecord %in% c("HUMAN_OBSERVATION", "humanobservation", "HumanObservation",
                                                              "observation", "OBSERVATION", "Saw 1", "Ruth ct. 1", "Saw 1 female",
@@ -40,7 +42,7 @@ occ <- occ %>%
   dplyr::mutate(id=row_number()) %>%
   arrange(species)
 
-# Filter the occurrence data such that there is a range map for it, and there are over 825
+# Filter the occurrence data such that there is a range map for it, and there are over 800
 # occurrences. Save the occurrences to a .rds file. Rework a list of species kept for the
 # analysis.
 occ_join <- occ %>%
@@ -57,7 +59,11 @@ sp_list_thresh <- occ_join %>%
   unique() %>%
   arrange(n)
 
-sp_kept <- sp_list_thresh$species %>% as.data.frame()
+sp_kept <- sp_list_thresh$species %>% 
+  as.data.frame() %>%
+  dplyr::filter(. %!in% c("Pieris marginalis", "Agriades optilete", "Celestrina ladon", "Danaus plexippus",
+                          "Boloria alaskensis", "Lethe anthedon", "Papilio polyxenes", "Phyciodes cocyta",
+                          "Megisto cymela"))
 colnames(sp_kept) <- c("species")
 
 # Load the tree used in Earl et al. 2020
@@ -82,26 +88,11 @@ my_vcv <- my_vcv[sort(sp_kept$species), sort(sp_kept$species)]
 
 saveRDS(my_vcv, "../output/tree_vcv.rds")
 
-# Visualize the phylogenetic tree (as a sanity check before proceeding)
-tree_plot <- ggtree(my_tree_prune, layout="circular", branch.length="edge.length")+
-  geom_text2(aes(subset=!isTip, label=node))+
-  #geom_hilight(node=120, fill="#44bb99", alpha=0.6)+ # Hesperiidae
-  #geom_hilight(node=204, fill="#99ddff", alpha=0.6)+ # Lycaenidae
-  #geom_hilight(node=136, fill="#eedd88", alpha=0.6)+ # Pieridae
-  #geom_hilight(node=151, fill="#ffaabb", alpha=0.6)+ # Nymphalidae
-  #geom_hilight(node=226, fill="#ee8866", alpha=0.6)+ # Papilionidae
-  geom_tippoint(color="black")+
-  geom_tiplab(size=3, color="black", hjust=-0.05)
-tree_plot
-
-ggsave2("../output/supplemental/tree.png", tree_plot, dpi=350, height=12, width=14)
-
 occ_join <- occ_join %>%
   dplyr::filter(species %in% sp_kept$species)
 saveRDS(occ_join, "../output/finalOccurrences.rds")
 
 sp_kept <- sp_kept %>%
-  dplyr::filter(species %!in% c("Pieris marginalis", "Agriades optilete", "Celestrina ladon")) %>%
   arrange(species) %>%
   dplyr::mutate(SPID=row_number()) %>%
   inner_join(dplyr::select(sp_list, lamasListName, rangeMapName), 
@@ -146,20 +137,20 @@ Area50_grid <- st_intersection(grid_50, basemap) %>%
   st_drop_geometry() %>%
   pull(area)/1e6 %>%
   round(digits=2)
-Area50_grid <- round(Area50_grid, 2)
+Area50_grid <- round(Area50_grid, 2) %>% scale()
 
 Area100_grid <- st_intersection(grid_100, basemap) %>%
   dplyr::mutate(area=st_area(.)) %>%
   st_drop_geometry() %>%
   pull(area)/1e6 %>%
   round(digits=2)
-Area100_grid <- round(Area100_grid, 2)
+Area100_grid <- round(Area100_grid, 2) %>% scale()
 
 Area200_grid <- st_intersection(grid_200, basemap) %>%
   dplyr::mutate(area=st_area(.)) %>%
   st_drop_geometry() %>%
   pull(area)/1e6
-Area200_grid <- round(Area200_grid, 2)
+Area200_grid <- round(Area200_grid, 2) %>% scale()
 
 saveRDS(Area50_grid, "../output/data/grid_50_area.rds")
 saveRDS(Area100_grid, "../output/data/grid_100_area.rds")
@@ -216,13 +207,26 @@ write.csv(range2, "../data/taxa/species_range_clim.csv")
 
 # Join the occurrence data to the grids and save into .rds files.
 grid_50_occur <- occ_sf %>%
-  st_join(grid_50) %>% dplyr::filter(!is.na(GID))
+  st_join(grid_50) %>% 
+  dplyr::select(SPID, year, GID) %>%
+  dplyr::filter(!is.na(GID)) %>%
+  st_drop_geometry() %>%
+  as.data.frame() %>%
+  unique()
 
 grid_100_occur <-  occ_sf %>%
-  st_join(grid_100) %>% dplyr::filter(!is.na(GID))
+  st_join(grid_100) %>%
+  dplyr::select(SPID, year, GID) %>%
+  dplyr::filter(!is.na(GID)) %>%
+  st_drop_geometry() %>%
+  unique()
 
 grid_200_occur <-  occ_sf %>%
-  st_join(grid_200) %>% dplyr::filter(!is.na(GID))
+  st_join(grid_200) %>%
+  dplyr::select(SPID, year, GID) %>%
+  dplyr::filter(!is.na(GID)) %>%
+  st_drop_geometry() %>%
+  unique()
 
 saveRDS(grid_50_occur, "../output/data/grid_50_occur.rds")
 saveRDS(grid_100_occur, "../output/data/grid_100_occur.rds")
@@ -239,8 +243,7 @@ range_ras <- fasterize::fasterize(sf=range,
                                   raster=BIO1,
                                   by="binomial")
 
-grid_50_range <- exactextractr::exact_extract(range_ras, grid_50) %>% 
-  unique()
+grid_50_range <- exactextractr::exact_extract(range_ras, grid_50)
 grid_list <- list()
 for(i in 1:nrow(grid_50)){
   grid_list[[i]] <- grid_50_range[[i]] %>%
@@ -249,8 +252,7 @@ for(i in 1:nrow(grid_50)){
 }
 grid_50_range <- do.call(rbind, grid_list)
 
-grid_100_range <- exactextractr::exact_extract(range_ras, grid_100) %>% 
-  unique()
+grid_100_range <- exactextractr::exact_extract(range_ras, grid_100)
 grid_list <- list()
 for(i in 1:nrow(grid_100)){
   grid_list[[i]] <- grid_100_range[[i]] %>%
@@ -259,9 +261,7 @@ for(i in 1:nrow(grid_100)){
 }
 grid_100_range <- do.call(rbind, grid_list)
 
-
-grid_200_range <- exactextractr::exact_extract(range_ras, grid_200) %>% 
-  unique()
+grid_200_range <- exactextractr::exact_extract(range_ras, grid_200)
 grid_list <- list()
 for(i in 1:nrow(grid_200)){
   grid_list[[i]] <- grid_200_range[[i]] %>%

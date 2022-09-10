@@ -61,6 +61,7 @@ make.data <- function(tree=NULL, scale, imputeThres=1){
     dplyr::select(SPID, GID, era, year) %>%
     dplyr::filter(SPID!=(nsp+1)) %>%
     dplyr::filter(era<=nyr, era>0) %>%
+    dplyr::filter(GID %in% temp.ind) %>%
     unique()
   
   # Process the climate rasters
@@ -186,8 +187,27 @@ make.data <- function(tree=NULL, scale, imputeThres=1){
   colnames(master.index) <- c("sp", "site", "yr", "visit")
   master.index <- unique(master.index)
   
+  tempscale <- scale(temp)
+  precipscale <- scale(precip)
+  gridareascale <- scale(gridarea)
+  
+  attr(tempscale, "scaled:center") <- NULL
+  attr(precipscale, "scaled:center") <- NULL
+  attr(gridareascale, "scaled:center") <- NULL
+  
+  attr(tempscale, "scaled:scale") <- NULL
+  attr(precipscale, "scaled:scale") <- NULL
+  attr(gridareascale, "scaled:scale") <- NULL
+  
   # Reformat data for exporting
-  my.data <- list(X=X[master.index])
+  my.data <- list(X=X[master.index],
+                  temp=tempscale,
+                  temp.trait=scale(sp_traits$ave_temp2)[1:nsp],
+                  precip=precipscale,
+                  precip.trait=scale(sp_traits$ave_precip2)[1:nsp],
+                  gridarea=c(gridareascale),
+                  VCOV=tree,
+                  ID=diag(1, nrow=nsp, ncol=nsp))
   
   my.constants <- list(
     nsp=dim(X)['nsp'],
@@ -196,15 +216,7 @@ make.data <- function(tree=NULL, scale, imputeThres=1){
     nind=nrow(master.index),
     yrv=master.index[,'yr'],
     sitev=master.index[,'site'],
-    spv=master.index[,'sp'],
-    temp=temp,
-    temp.trait=scale(sp_traits$ave_temp2)[1:nsp],
-    precip=precip,
-    precip.trait=scale(sp_traits$ave_precip2)[1:nsp],
-    gridarea=gridarea,
-    VCOV=tree,
-    ID=diag(1, nrow=nsp, ncol=nsp),
-    X=X[master.index])
+    spv=master.index[,'sp'])
   
   range.matrix <- matrix(FALSE, nrow=nsp, ncol=nsite)
   for(sp in 1:nsp){
@@ -218,7 +230,10 @@ make.data <- function(tree=NULL, scale, imputeThres=1){
   range.matrix[range.matrix==0] <- NA
   
   my.info <- list(kept.sites=site.keep,
-                  range.list=range.matrix)
+                  range.list=range.matrix,
+                  precip=scale(precip),
+                  temp=scale(temp),
+                  gridarea=scale(gridarea))
   
   message("Master indices generated, prepping inits...")
   Zst <- array(0, dim=c(my.constants$nsite, 
@@ -234,31 +249,48 @@ make.data <- function(tree=NULL, scale, imputeThres=1){
   }
   Zst <- replace(Zst, Zst>1, 1)
   
-  my.inits <- list(Z=Zst)
+  my.inits <- list(Z=Zst, 
+                   mu.p.0=0, 
+                   p.yr=0, 
+                   sigma.p.sp=0.1, 
+                   sigma.p.site=0.1,
+                   sp.psi.0=rep(0.5,nsp), 
+                   sigma.psi.sp=0.1, 
+                   psi.yr=rep(0,nyr), 
+                   sigma.psi.yr=0.1,  
+                   sigma.psi.site=0.1, 
+                   psi.temp.env=0, 
+                   psi.temp.trait=0, 
+                   psi.precip.env=0, 
+                   psi.precip.trait=0,
+                   lambda.temp=0.5, 
+                   lambda.precip=0.5, 
+                   sigma.psi.temp=0.1, 
+                   sigma.psi.precip=0.1,
+                   psi.area=0)
   
-  my.params <- c("mu.p.0",
-                 "sigma.p.0.sp",
-                 "sigma.p.0.site",
-                 "p.yr",
-                 "p.0.sp",
-                 "p.0.site",
-                 "psi.area",
-                 "sigma.psi.site",
-                 "psi.site",
-                 "psi.0.sp",
-                 "beta.temp",
-                 "beta.trait.temp",
-                 "beta.precip",
-                 "beta.trait.precip",
-                 "lambda.temp",
-                 "lambda.precip",
-                 "sigma.psi.temp",
-                 "sigma.psi.precip",
-                 "psi.beta.temp.sp",
-                 "psi.beta.precip.sp")
+  master.data <- list(X=X[master.index],
+                      temp=scale(temp, center=TRUE),
+                      temp.trait=scale(sp_traits$ave_temp2)[1:nsp],
+                      precip=scale(precip, center=TRUE),
+                      precip.trait=scale(sp_traits$ave_precip2)[1:nsp],
+                      gridarea=scale(gridarea, center=TRUE),
+                      ID=diag(1, nrow=nsp, ncol=nsp),
+                      nsp=dim(X)['nsp'],
+                      nsite=dim(X)['nsite'],
+                      nyr=dim(X)['nyr'],
+                      nind=nrow(master.index),
+                      yrv=master.index[,'yr'],
+                      sitev=master.index[,'site'],
+                      spv=master.index[,'sp'])
+  
+  jsonlite::write_json(master.data, 
+                       paste0("../output/my_data_", scale, "_", imputeThres, ".json"))
   
   # Return model-ready data
   return(list(my.constants=my.constants, my.data=my.data, my.inits=my.inits, my.info=my.info,
-              my.params=my.params))
+              master.data=master.data))
   
+  # Return model-ready data for python
+  # return(my_mega_list)
 }
