@@ -6,9 +6,9 @@ library(grid); library(parallel); library(coda); library(mcmcr); library(purrr);
 library(taxize); library(terra); library(ggnewscale); library(pals); library(colorspace) 
 library(jagsUI); library(biscale); library(gganimate); library(ggforce); library(pbapply) 
 library(egg); library(HDInterval); library(GGally); library(MCMCvis); library(grid) 
-library(ggrepel); library(ape); library(rotl); library(ggtree); library(tidytree); library(lessR) 
+library(ggrepel); library(ape); library(rotl); library(ggtree); library(tidytree);
 library(ggridges); library(png); library(tidytree); library(gridExtra); library(gridtext)
-library(sfheaders)
+library(sfheaders); library(phylosignal)
 
 # Set a global seed for reproducibility
 set.seed(04262022)

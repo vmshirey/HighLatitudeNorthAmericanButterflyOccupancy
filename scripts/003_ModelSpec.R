@@ -18,7 +18,7 @@ run.R2jags.model <- function(d,
   if(phy == FALSE){
     model.file = "model_intercept.txt"
     my.params <- c("mu.p.0", "p.yr", "sigma.p.sp", "sigma.p.site", "mu.psi.0",
-                   "sigma.psi.sp", "psi.yr", "sigma.psi.yr", "psi.site",  "sigma.psi.site", 
+                   "sigma.psi.sp", "psi.yr", "sigma.psi.yr", "psi.site", "psi.sp", "sigma.psi.site", 
                    "sigma.psi.sp.temp", "sigma.psi.sp.precip",
                    "sigma.psi.sp.temp", "sigma.psi.sp.precip",
                    "psi.beta.temp", "psi.beta.precip", "psi.area")
