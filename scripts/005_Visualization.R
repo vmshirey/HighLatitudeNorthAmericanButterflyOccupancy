@@ -1,10 +1,10 @@
 # Load libraries
 library(colorspace); library(ggdist); library(hrbrthemes)
-library(bayestestR); library(brmstools)
+library(bayestestR); library(brmstools); library(beepr)
 
-source("000_init.R")
+# Source additional scripts
+source("000_Init.R")
 source("002_PrepData.R")
-
 source("misc_helperFunctions.R")
 
 # Read in the basemap
@@ -40,6 +40,22 @@ my_sum_200_1 <- my_sum_200_1 %>% rownames_to_column("Parameter")
 sims_matrix_200 <- as.matrix(my_res_200_1)
 
 ####################################################################################################
+# Grab Overall Occupancy Shifts                                                                           
+####################################################################################################
+
+# 100 x 100 kilometer analysis
+
+# 200 x 200 kilometer analysis
+occShift_200_core <- compute_occ_shift(my_data_200_1, sims_matrix_200, my_traits,
+                                       site_type="core", scale="200")
+
+ggplot()+
+  geom_pointrange(occShift_200_core,
+                  mapping=aes(x=order, y=site_occDx, ymin=site_occDx_lower, ymax=site_occDx_upper))+
+  theme_cowplot()
+
+
+####################################################################################################
 # Create Figure One                                                                                #
 ####################################################################################################
 # Read in the occurrence data
@@ -52,6 +68,7 @@ my_occ_counts <- my_occ_dat %>%
   dplyr::mutate(n=n()) %>%
   dplyr::select(species, n) %>% ungroup() %>% unique()
 
+
 ####################################################################################################
 # FIGURE TWO                                                                            
 ####################################################################################################
@@ -63,11 +80,8 @@ plot_figure_two(sims_matrix_200, my_traits, scale="200")
 # FIGURE THREE
 ####################################################################################################
 
-occ_dx_100 <- plot_figure_three(sims_matrix_100, my_data_100, sims_matrix_200, my_data_200, my_traits,
-                                scale="100")
-
-occ_dx_200 <- plot_figure_three(sims_matrix_100, my_data_100, sims_matrix_200, my_data_200, my_traits,
-                                scale="200")
+plot_figure_three(sims_matrix_100, my_data_100, sims_matrix_200, my_data_200, my_traits, scale="100")
+plot_figure_three(sims_matrix_100, my_data_100, sims_matrix_200, my_data_200, my_traits, scale="200")
 
 ####################################################################################################
 # Figure Four                                                                                      #
