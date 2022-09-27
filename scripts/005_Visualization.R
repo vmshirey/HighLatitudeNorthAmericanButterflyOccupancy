@@ -7,15 +7,6 @@ source("000_Init.R")
 source("002_PrepData.R")
 source("misc_helperFunctions.R")
 
-# Read in the basemap
-basemap <- st_read("../../../Resources/ShapefilesAndRasters/StateProvince/ne_10m_admin_1_states_provinces.shp") %>%
-  st_crop(xmin=-180, xmax=-50,
-          ymin=45, ymax=80)
-
-basemap <- basemap %>% 
-  st_transform(crs_1) %>%
-  st_make_valid()
-
 # Load species trait data
 my_traits <- read.csv("../data/taxa/species_range_clim.csv")
 my_traits <- my_traits %>%
@@ -44,16 +35,23 @@ sims_matrix_200 <- as.matrix(my_res_200_1)
 ####################################################################################################
 
 # 100 x 100 kilometer analysis
+occShift_100_all <- compute_occ_shift(my_data_100_1, sims_matrix_100, my_traits,
+                                      site_type="all", scale="100") %>%
+  dplyr::arrange(mean) %>%
+  dplyr::mutate(order=row_number(),
+                trend=sign(mean)) %>%
+  dplyr::mutate(trend=ifelse(between(0, lower, upper), 0, trend)) %>%
+  inner_join(my_traits, by="SPID")
+
 
 # 200 x 200 kilometer analysis
-occShift_200_core <- compute_occ_shift(my_data_200_1, sims_matrix_200, my_traits,
-                                       site_type="core", scale="200")
-
-ggplot()+
-  geom_pointrange(occShift_200_core,
-                  mapping=aes(x=order, y=site_occDx, ymin=site_occDx_lower, ymax=site_occDx_upper))+
-  theme_cowplot()
-
+occShift_200_all <- compute_occ_shift(my_data_200_1, sims_matrix_200, my_traits,
+                                       site_type="all", scale="200") %>%
+  dplyr::arrange(mean) %>%
+  dplyr::mutate(order=row_number(),
+                trend=sign(mean)) %>%
+  dplyr::mutate(trend=ifelse(between(0, lower, upper), 0, trend)) %>%
+  inner_join(my_traits, by="SPID")
 
 ####################################################################################################
 # Create Figure One                                                                                #
@@ -73,28 +71,23 @@ my_occ_counts <- my_occ_dat %>%
 # FIGURE TWO                                                                            
 ####################################################################################################
 
-plot_figure_two(sims_matrix_100, my_traits, scale="100", makeCommOnly=TRUE)
+plot_figure_two(sims_matrix_100, my_traits, scale="100")
 plot_figure_two(sims_matrix_200, my_traits, scale="200")
 
 ####################################################################################################
-# FIGURE THREE
+# Figure Three                                                                                     #
 ####################################################################################################
 
-plot_figure_three(sims_matrix_100, my_data_100, sims_matrix_200, my_data_200, my_traits, scale="100")
-plot_figure_three(sims_matrix_100, my_data_100, sims_matrix_200, my_data_200, my_traits, scale="200")
+plot_figure_three(occShift_100_all, my_traits, sims_matrix_100, "100")
+plot_figure_three(occShift_200_all, my_traits, sims_matrix_200, "200")
 
-####################################################################################################
-# Figure Four                                                                                      #
-####################################################################################################
-
-figure_4_100 <- plot_figure_four(NULL, my_data_100_1, scale="100", SPIDs=c(5,49,17))
 
 ####################################################################################################
 # Figure Five                                                                                      #
 ####################################################################################################
 
-plot_figure_five(occ_dx_100, "100")
-plot_figure_five(occ_dx_200, "200")
+plot_figure_five(occShift_100_all, "100")
+plot_figure_five(occShift_200_all, "200")
 
 
 ####################################################################################################

@@ -3,8 +3,8 @@
 # Computes the occupancy interval shift at a collection of sites given the samples derived
 # from occupancy-detection modeling.
 ####################################################################################################
-compute_occ_shift <- function(my_data, my_sim_matrix, my_traits, site_type="core",
-                              scale="100"){
+compute_occ_shift <- function(my_data, my_sim_matrix, 
+                              my_traits, site_type="core", scale="100"){
   
   # Load in the grids depending on scale
   if(scale=="100"){
@@ -54,8 +54,33 @@ compute_occ_shift <- function(my_data, my_sim_matrix, my_traits, site_type="core
       return(0)
     }
     
+    meanTemp_Occ1 <- mean(my_data$my.data$temp[my_sites, 1], na.rm=TRUE)
+    meanPrecip_Occ1 <- mean(my_data$my.data$precip[my_sites, 1], na.rm=TRUE)
     
+    meanTemp_Occ10 <- mean(my_data$my.data$temp[my_sites, 10], na.rm=TRUE)
+    meanPrecip_Occ10 <- mean(my_data$my.data$precip[my_sites, 10], na.rm=TRUE)
+    
+    meanProb_Occ1 <- plogis(my_sim_matrix[,"mu.psi.0"]+
+                              my_sim_matrix[,"psi.area"]*mean(my_data$my.data$gridarea)+
+                              my_sim_matrix[,sprintf("psi.beta.temp[%d]", sp)]*meanTemp_Occ1+
+                              my_sim_matrix[,sprintf("psi.beta.precip[%d]", sp)]*meanPrecip_Occ1)
+    
+    meanProb_Occ10 <- plogis(my_sim_matrix[,"mu.psi.0"]+
+                               my_sim_matrix[,"psi.area"]*mean(my_data$my.data$gridarea)+
+                               my_sim_matrix[,sprintf("psi.beta.temp[%d]", sp)]*meanTemp_Occ10+
+                               my_sim_matrix[,sprintf("psi.beta.precip[%d]", sp)]*meanPrecip_Occ10)
+    
+    meanProb_dx <- meanProb_Occ10-meanProb_Occ1
+    
+    my_occ_list[[sp]] <- c(sp,
+                           mean(meanProb_dx),
+                           quantile(meanProb_dx, c(0.05, 0.975))[1],
+                           quantile(meanProb_dx, c(0.05, 0.975))[2])
+  }
+  my_occ_df <- do.call(rbind, my_occ_list) %>% as.data.frame()
+  colnames(my_occ_df) <- c("SPID", "mean", "lower", "upper")
   
+  return(my_occ_df)
 }
 
 ####################################################################################################
@@ -243,61 +268,114 @@ plot_figure_two <- function(sims_matrix, my_traits,
 # FUNCTION: plot_figure_three -
 # Creates figure three given a scale of inference.
 ####################################################################################################
-plot_figure_three <- function(sims_matrix_100, my_data_100, sims_matrix_200, my_data_200, my_traits,
+plot_figure_three <- function(occ_dx, my_traits, sims_matrix,
                               scale="100"){
   
-}
-
-####################################################################################################
-# FUNCTION: plot_figure_four -
-# Creates figure four given a scale of inference.
-####################################################################################################
-plot_figure_four <- function(occ_dx, my_data,
-                             scale="100", SPIDs=c(1)){
+  figure_3_a <- ggplot()+
+    geom_hline(yintercept=0, linetype=2)+
+    geom_pointrange(my_occ_shift,
+                    mapping=aes(x=order, y=mean, ymin=lower, ymax=upper, group=SPID,
+                                color=as.factor(trend)),
+                    size=1)+
+    geom_point(my_occ_shift,
+               mapping=aes(x=order, y=mean, group=SPID),
+               shape=21, fill=NA)+
+    scale_color_discrete_diverging(palette="Berlin", rev=TRUE,
+                                   labels=c("Decreasing", "Stable",
+                                            "Increasing"),
+                                   name="Overall Trend")+
+    scale_x_continuous(breaks=seq(1:nrow(my_traits)), labels=my_occ_shift$speciesCode,
+                       name="Species Code")+
+    scale_y_continuous(labels=scales::percent, name="Mean In-range Occupancy Shift")+
+    theme_cowplot()+
+    theme(axis.text.x=element_text(angle=90, vjust=0.5, hjust=1, size=9),
+          legend.position=c(0.05, 0.9),
+          legend.direction="horizontal")
   
-  if(scale=="50"){
-    my_grid <- readRDS("../output/data/grid_50.rds")
-  } else if(scale=="100"){
-    my_grid <- readRDS("../output/data/grid_100.rds")
-  } else{
-    my_grid <- readRDS("../output/data/grid_200.rds")
-  }
+  # Pull the temperature parameter estimates per species
+  my_temp_samp <- sims_matrix[,grepl("psi.beta.temp", colnames(sims_matrix))]
   
-  plot_list <- list()
-  for(i in 1:length(SPIDs)){
-    
-    my_range_sites <- my_data$my.info$range.list[SPIDs[i],]
-    my_kept_sites <- my_data$my.info$kept.sites
-    
-    my_valid_sites <- intersect(my_range_sites, my_kept_sites)
-    
-    my_grid <- dplyr::filter(my_grid, GID %in% my_valid_sites)
-    
-    ave_site_tempRange <- quantile(my_data$my.data$temp[my_valid_sites, 1])[c(1,2)]
-    my_cold_sites <- which(between(my_data$my.data$temp[my_valid_sites, 1],
-                                   ave_site_tempRange[1], ave_site_tempRange[2]), 
-                           arr.ind=TRUE)
-    
-    ave_site_tempRange <- quantile(my_data$my.data$temp[my_valid_sites, 1])[c(4,5)]
-    my_warm_sites <- which(between(my_data$my.data$temp[my_valid_sites, 1],
-                                   ave_site_tempRange[1], ave_site_tempRange[2]), 
-                           arr.ind=TRUE)
-    
-    my_grid <- my_grid %>%
-      dplyr::mutate(siteType=ifelse(GID %in% my_cold_sites, "Colder", 
-                                    ifelse(GID %in% my_warm_sites, "Warmer", "Average")))
-    my_grid$siteType <- factor(my_grid$siteType,
-                               levels=c("Colder", "Average", "Warmer"))
-    
-    plot_list[[i]] <- ggplotGrob(ggplot()+
-                                   geom_sf(my_grid, mapping=aes(fill=siteType), color=NA)+
-                                   geom_sf(basemap, mapping=aes(), fill=NA)+
-                                   scale_fill_manual(values=c("#006da2", "grey", "#9f4d48"), name="Site Type")+
-                                   theme_void()+
-                                   theme(legend.position=c(0.27, 0.4))) 
-    
-  }
-  return(plot_list)
+  # Extract summary statistics
+  my_temp_mean <- apply(my_temp_samp, 2, mean)
+  my_temp_lower <- apply(my_temp_samp, 2, quantile, probs=c(0.025))
+  my_temp_upper <- apply(my_temp_samp, 2, quantile, probs=c(0.975))
+  
+  # Extract community statistics
+  my_temp_mean_comm <- mean(my_temp_samp)
+  my_temp_int_comm <- quantile(my_temp_samp, probs=c(0.025,0.975))
+  
+  # Merge the temperature parameter estimates with the species trait data
+  my_temp <- data.frame(my_temp_mean=my_temp_mean, 
+                        my_temp_lower=my_temp_lower, 
+                        my_temp_upper=my_temp_upper) %>%
+    dplyr::mutate(SPID=c(1:70))
+  
+  # Pull the precipitation parameter estimates per species
+  my_precip_samp <- sims_matrix[,grepl("psi.beta.precip", colnames(sims_matrix))]
+  my_precip_mean <- apply(my_precip_samp, 2, mean)
+  my_precip_lower <- apply(my_precip_samp, 2, quantile, probs=c(0.025))
+  my_precip_upper <- apply(my_precip_samp, 2, quantile, probs=c(0.975))
+  
+  # Extract community statistics
+  my_precip_mean_comm <- mean(my_precip_samp)
+  my_precip_int_comm <- quantile(my_precip_samp, probs=c(0.025,0.975))
+  
+  # Merge the precipitation parameter estimates with the species trait data
+  my_precip <- data.frame(my_precip_mean=my_precip_mean, 
+                          my_precip_lower=my_precip_lower, 
+                          my_precip_upper=my_precip_upper) %>%
+    dplyr::mutate(SPID=c(1:70))
+  
+  all_effects <- inner_join(my_temp, my_precip, by="SPID") %>%
+    inner_join(occ_dx, by="SPID") %>%
+    dplyr::select(SPID, my_temp_mean, my_precip_mean, mean, trend) %>%
+    gather("Metric", "Value", -c(SPID, trend)) %>%
+    dplyr::mutate(Position=ifelse(Metric=="my_temp_mean", 1,
+                                  ifelse(Metric=="my_precip_mean", 3, 2)),
+                  Value=ifelse(Metric=="mean", Value*100, Value)) %>%
+    inner_join(my_traits, by="SPID")
+  
+  figure_3_b <- ggplot()+
+    geom_line(all_effects,
+              mapping=aes(x=Position, y=Value, group=SPID), alpha=0.5)+
+    geom_point(dplyr::filter(all_effects, Position==1),
+               mapping=aes(x=Position, y=Value, color=ave_temp2), 
+               size=3)+
+    scale_color_continuous_divergingx(mid=mean(my_traits$ave_temp2),
+                                      palette="temps", 
+                                      name="Average Annual Range-\nwide Temperature (°C)",
+                                      guide = guide_colorbar(
+                                        direction = "horizontal",
+                                        title.position = "top"
+                                      ))+
+    ggnewscale::new_scale_color()+
+    geom_point(dplyr::filter(all_effects, Position==3),
+               mapping=aes(x=Position, y=Value, color=ave_precip2), 
+               size=3)+
+    scale_color_continuous_divergingx(mid=mean(my_traits$ave_precip2),
+                                      palette="Earth", 
+                                      name="Average Annual Range-\nwide Precipitation (cm)",
+                                      guide = guide_colorbar(
+                                        direction = "horizontal",
+                                        title.position = "top"
+                                      ))+
+    ggnewscale::new_scale_color()+
+    geom_point(dplyr::filter(all_effects, Position==2),
+               mapping=aes(x=Position, y=Value, color=as.factor(trend)), 
+               size=3)+
+    scale_color_discrete_diverging(palette="Berlin", rev=TRUE,
+                                   labels=c("Decreasing", "Stable",
+                                            "Increasing"),
+                                   name="Overall Trend")+
+    scale_x_continuous(breaks=c(1,2,3), labels=c("Temp. Effect", "Occ. Dx", "Precip. Effect"))+
+    labs(x="Parameter Name", y="Parameter Estimate")+
+    theme_cowplot()+
+    theme(legend.position="none")
+  
+  figure_3 <- cowplot::plot_grid(figure_3_a, figure_3_b, ncol=2,
+                                 labels=c("(a)", "(b)"), rel_widths=c(1,0.3))
+  ggsave(paste0("../figures/FIGURE_3_", scale, ".png"), dpi=400, height=4, width=14)
+  
 }
 
 ####################################################################################################
@@ -310,7 +388,7 @@ plot_figure_five <- function(occ_dx, scale="100"){
   
   library(tidybayes)
   
-  temp_occ_dx_model <- occ_dx[[1]] %>%
+  temp_occ_dx_model <- occ_dx %>%
     dplyr::filter(Voltinism!="", !is.na(Voltinism),
                   DisturbanceAffinitySimple!="", !is.na(DisturbanceAffinitySimple))%>%
     dplyr::mutate(phylo=species)
@@ -322,7 +400,7 @@ plot_figure_five <- function(occ_dx, scale="100"){
                                                         levels=c("Generalist", "Affinity",
                                                                  "Avoidant"))
   
-  trait_model <- brms::brm(meanOcc_lowTemp~
+  trait_model <- brms::brm(mean~
                              DisturbanceAffinity+
                              Voltinism+
                              NumHostplantFamilies+
