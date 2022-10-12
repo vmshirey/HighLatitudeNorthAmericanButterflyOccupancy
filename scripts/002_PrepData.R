@@ -191,6 +191,39 @@ make.data <- function(tree=NULL, scale, imputeThres=1){
   precipscale <- scale(precip)
   gridareascale <- scale(gridarea)
   
+  # Perform a principal-components analysis on the climate covariates and save off the
+  # scores for each site, year combination in case of multicollinearity
+  my_pca_df <- data.frame(temp=c(tempscale), precip=c(precipscale))
+  
+  my_pca <- prcomp(~temp+precip, data=my_pca_df)
+  my_pca_df <- my_pca_df %>% cbind(my_pca$x)
+  my_pca_df <- my_pca_df %>%
+    dplyr::mutate(tempClass=cut(temp, unique(quantile(temp)), include.lowest=TRUE)) %>%
+    dplyr::mutate(precipClass=cut(precip, unique(quantile(precip)), include.lowest=TRUE))
+  
+  my_biplot <- ggplot()+
+    geom_point(my_pca_df,
+               mapping=aes(x=PC1, y=PC2, 
+                           shape=precipClass, color=tempClass))+
+    colorspace::scale_color_discrete_divergingx(palette="temps",
+                                                labels=c("Coldest", "Cold",
+                                                         "Warm", "Warmest"),
+                                                name="Temperature Class")+
+    scale_shape_discrete(labels=c("Driest", "Drier", "Wet", "Wettest"),
+                         name="Precipitation Class")+
+    labs(x=paste0("PC1 (", round(summary(my_pca)$importance[2,1]*100, 2), "% of Variance)"),
+         y=paste0("PC1 (", round(summary(my_pca)$importance[2,2]*100, 2), "% of Variance)"))+
+    theme_cowplot()+
+    theme(plot.background=element_rect(fill="white"),
+          axis.text=element_text(size=16),
+          axis.title=element_text(size=18),
+          legend.position=c(0.05, 0.2))
+  ggsave2(paste0("../figures/supplemental/ClimatePCA_", scale, ".png"), my_biplot, dpi=400,
+          height=10, width=10)
+  
+  pca1 <- matrix(my_pca_df$PC1, ncol=10)
+  pca2 <- matrix(my_pca_df$PC2, ncol=10)
+  
   attr(tempscale, "scaled:center") <- NULL
   attr(precipscale, "scaled:center") <- NULL
   attr(gridareascale, "scaled:center") <- NULL
@@ -207,7 +240,9 @@ make.data <- function(tree=NULL, scale, imputeThres=1){
                   precip.trait=scale(sp_traits$ave_precip2)[1:nsp],
                   gridarea=c(gridareascale),
                   VCOV=tree,
-                  ID=diag(1, nrow=nsp, ncol=nsp))
+                  ID=diag(1, nrow=nsp, ncol=nsp),
+                  PCA1=pca1,
+                  PCA2=pca2)
   
   my.constants <- list(
     nsp=dim(X)['nsp'],

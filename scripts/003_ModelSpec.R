@@ -3,7 +3,8 @@ run.R2jags.model <- function(d,
                              nb=1e3,
                              nt=25,
                              nc=1,
-                             phy=TRUE){
+                             phy=TRUE,
+                             pca=TRUE){
   
   
   
@@ -16,12 +17,20 @@ run.R2jags.model <- function(d,
                    "psi.beta.temp", "psi.beta.precip", "psi.area")
   }
   if(phy == FALSE){
-    model.file = "model_intercept.txt"
-    my.params <- c("mu.p.0", "p.yr", "sigma.p.sp", "sigma.p.site", "mu.psi.0",
-                   "psi.yr", "sigma.psi.yr", "psi.site", "sigma.psi.site", 
-                   "sigma.psi.sp.temp", "sigma.psi.sp.precip",
-                   "sigma.psi.sp.temp", "sigma.psi.sp.precip",
-                   "psi.beta.temp", "psi.beta.precip", "psi.area")
+    
+    if(pca=TRUE){
+      model.file = "model_intercept_pca.txt"
+      my.params <- c("mu.p.0", "p.yr", "sigma.p.sp", "sigma.p.site", "mu.psi.0",
+                     "psi.yr", "sigma.psi.yr", "psi.site", "sigma.psi.site", 
+                     "sigma.psi.sp.pca1", "sigma.psi.sp.pca1",
+                     "psi.beta.pca1", "psi.beta.pca2", "psi.area")
+    } else{
+      model.file = "model_intercept.txt"
+      my.params <- c("mu.p.0", "p.yr", "sigma.p.sp", "sigma.p.site", "mu.psi.0",
+                     "psi.yr", "sigma.psi.yr", "psi.site", "sigma.psi.site", 
+                     "sigma.psi.sp.temp", "sigma.psi.sp.precip",
+                     "psi.beta.temp", "psi.beta.precip", "psi.area")
+    }
   }
   
   res <- jagsUI::jags.basic(data=c(d$my.data, d$my.constants),

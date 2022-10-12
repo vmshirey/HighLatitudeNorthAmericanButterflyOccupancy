@@ -75,10 +75,11 @@ compute_occ_shift <- function(my_data, my_sim_matrix,
     my_occ_list[[sp]] <- c(sp,
                            mean(meanProb_dx),
                            quantile(meanProb_dx, c(0.05, 0.975))[1],
-                           quantile(meanProb_dx, c(0.05, 0.975))[2])
+                           quantile(meanProb_dx, c(0.05, 0.975))[2],
+                           sd(meanProb_dx))
   }
   my_occ_df <- do.call(rbind, my_occ_list) %>% as.data.frame()
-  colnames(my_occ_df) <- c("SPID", "mean", "lower", "upper")
+  colnames(my_occ_df) <- c("SPID", "mean", "lower", "upper", "sd")
   
   return(my_occ_df)
 }
@@ -273,20 +274,20 @@ plot_figure_three <- function(occ_dx, my_traits, sims_matrix,
   
   figure_3_a <- ggplot()+
     geom_hline(yintercept=0, linetype=2)+
-    geom_pointrange(my_occ_shift,
+    geom_pointrange(occ_dx,
                     mapping=aes(x=order, y=mean, ymin=lower, ymax=upper, group=SPID,
                                 color=as.factor(trend)),
                     size=1)+
-    geom_point(my_occ_shift,
+    geom_point(occ_dx,
                mapping=aes(x=order, y=mean, group=SPID),
                shape=21, fill=NA)+
     scale_color_discrete_diverging(palette="Berlin", rev=TRUE,
                                    labels=c("Decreasing", "Stable",
                                             "Increasing"),
                                    name="Overall Trend")+
-    scale_x_continuous(breaks=seq(1:nrow(my_traits)), labels=my_occ_shift$speciesCode,
+    scale_x_continuous(breaks=seq(1:nrow(my_traits)), labels=occ_dx$speciesCode,
                        name="Species Code")+
-    scale_y_continuous(labels=scales::percent, name="Mean In-range Occupancy Shift")+
+    scale_y_continuous(labels=scales::percent, name="Mean In-range\nOccupancy Shift")+
     theme_cowplot()+
     theme(axis.text.x=element_text(angle=90, vjust=0.5, hjust=1, size=9),
           legend.position=c(0.05, 0.9),
@@ -400,11 +401,11 @@ plot_figure_five <- function(occ_dx, scale="100"){
                                                         levels=c("Generalist", "Affinity",
                                                                  "Avoidant"))
   
-  trait_model <- brms::brm(mean~
-                             DisturbanceAffinity+
+  
+  trait_model <- brms::brm(mean|mi(sd)~DisturbanceAffinity+
                              Voltinism+
-                             NumHostplantFamilies+
-                             AveWingspan+
+                             scale(NumHostplantFamilies)+
+                             scale(AveWingspan)+
                              (1|gr(phylo, cov=A)),
                            data=temp_occ_dx_model,
                            prior = c(
@@ -432,7 +433,7 @@ plot_figure_five <- function(occ_dx, scale="100"){
     tidybayes::gather_draws(c(b_DisturbanceAffinityStrongAffinity, b_DisturbanceAffinityWeakAffinity,
                               b_DisturbanceAffinityWeakAvoidant, b_DisturbanceAffinityStrongAvoidant,
                               b_VoltinismBivoltine, b_VoltinismMultivoltine, b_VoltinismBiennial,
-                              b_NumHostplantFamilies, b_AveWingspan, b_Intercept))
+                              b_scaleNumHostplantFamilies, b_scaleAveWingspan, b_Intercept))
   
   figure_5_a_inset <- ggplot()+
     stat_halfeye(hyp_samp, mapping=aes(x=H1), fill="#fb6a4a", alpha=0.5)+
@@ -457,8 +458,8 @@ plot_figure_five <- function(occ_dx, scale="100"){
     scale_y_discrete(limits=rev(c("b_Intercept", "b_VoltinismBivoltine", "b_VoltinismMultivoltine",
                                   "b_VoltinismBiennial", "b_DisturbanceAffinityStrongAvoidant",
                                   "b_DisturbanceAffinityWeakAvoidant", "b_DisturbanceAffinityWeakAffinity",
-                                  "b_DisturbanceAffinityStrongAffinity", "b_NumHostplantFamilies", "b_AveWingspan",
-                                  "r_phylo")),
+                                  "b_DisturbanceAffinityStrongAffinity", "b_scaleNumHostplantFamilies",
+                                  "b_scaleAveWingspan","r_phylo")),
                      labels=rev(c("Intercept", "Bivoltine", "Multivoltine", "Biennial",
                                   "Strongly Disturbance Avoidant", "Weakly Disturbance Avoidant",
                                   "Weak Disturbance Affinity", "Strong Disturbance Affinity",

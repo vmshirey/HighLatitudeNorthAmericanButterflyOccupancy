@@ -18,6 +18,19 @@ my_traits <- my_traits %>%
 my_data_100_1 <- make.data(scale=100, imputeThres=1) 
 my_data_200_1 <- make.data(scale=200, imputeThres=1)
 
+# Check and visualize correlation between temperature and precipitation
+cor.test(c(my_data_100_1$my.data$temp), 
+         c(my_data_100_1$my.data$precip))
+
+cor.test(c(my_data_200_1$my.data$temp), 
+         c(my_data_200_1$my.data$precip))
+
+cov_pca <- prcomp(data.frame(temp=c(my_data_100_1$my.data$temp),
+                  precip=c(my_data_100_1$my.data$precip)), 
+                  center=TRUE, scale.=TRUE,
+                  cor=TRUE)
+ggbiplot::ggbiplot(cov_pca)
+
 # 100 by 100 km analysis
 my_res_100_1 <- readRDS("../output/samples/my_res_100_1_LONGRUN_Intercept.rds")
 my_sum_100_1 <- MCMCvis::MCMCsummary(my_res_100_1)
