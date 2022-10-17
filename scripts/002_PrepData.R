@@ -203,8 +203,15 @@ make.data <- function(tree=NULL, scale, imputeThres=1){
   
   my_biplot <- ggplot()+
     geom_point(my_pca_df,
-               mapping=aes(x=PC1, y=PC2, 
+               mapping=aes(x=PC1*-1, y=PC2, 
                            shape=precipClass, color=tempClass))+
+    geom_segment(NULL,
+                 mapping=aes(x=c(0,0), y=c(0,0),
+                   xend=my_pca$rotation[,1]*-1, yend=my_pca$rotation[,2]),
+                 arrow=arrow(length=unit(0.03, "npc")))+
+    geom_label(NULL,
+                 mapping=aes(x=(my_pca$rotation[,1]/2)*-1, y=my_pca$rotation[,2]/2,
+                             label=c("Temp.", "Precip.")))+
     colorspace::scale_color_discrete_divergingx(palette="temps",
                                                 labels=c("Coldest", "Cold",
                                                          "Warm", "Warmest"),
@@ -212,7 +219,7 @@ make.data <- function(tree=NULL, scale, imputeThres=1){
     scale_shape_discrete(labels=c("Driest", "Drier", "Wet", "Wettest"),
                          name="Precipitation Class")+
     labs(x=paste0("PC1 (", round(summary(my_pca)$importance[2,1]*100, 2), "% of Variance)"),
-         y=paste0("PC1 (", round(summary(my_pca)$importance[2,2]*100, 2), "% of Variance)"))+
+         y=paste0("PC2 (", round(summary(my_pca)$importance[2,2]*100, 2), "% of Variance)"))+
     theme_cowplot()+
     theme(plot.background=element_rect(fill="white"),
           axis.text=element_text(size=16),
@@ -221,7 +228,7 @@ make.data <- function(tree=NULL, scale, imputeThres=1){
   ggsave2(paste0("../figures/supplemental/ClimatePCA_", scale, ".png"), my_biplot, dpi=400,
           height=10, width=10)
   
-  pca1 <- matrix(my_pca_df$PC1, ncol=10)
+  pca1 <- matrix(my_pca_df$PC1, ncol=10)*-1
   pca2 <- matrix(my_pca_df$PC2, ncol=10)
   
   attr(tempscale, "scaled:center") <- NULL

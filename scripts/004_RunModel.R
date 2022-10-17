@@ -1,4 +1,4 @@
-library(tidyverse); library(rjags); library(jagsUI); library(parallel)
+library(tidyverse); library(rjags); library(jagsUI); library(parallel); library(cowplot)
 source("002_PrepData.R")
 source("003_ModelSpec.R")
 
@@ -8,7 +8,7 @@ my_tree <- readRDS("../output/tree_vcv.rds")
 # 200 x 200 km analysis
 my_data_200_1 <- make.data(my_tree, 200, 1)
 
-my_res_200_1 <- run.R2jags.model(d=my_data_200_1, ni=11e4, nb=1e4, nt=100, nc=3, phy=FALSE, pca=TRUE)
+my_res_200_1 <- run.R2jags.model(d=my_data_200_1, ni=15e4, nb=5e4, nt=100, nc=3, phy=FALSE, pca=TRUE)
 saveRDS(my_res_200_1, "../output/samples/my_res_200_1_LONGRUN_Intercept_PCA.RDS")
 
 # my_res_200_1_phy <- run.R2jags.model(d=my_data_200_1, ni=8.1e4, nb=1e3, nt=200, nc=4, phy=TRUE)
@@ -17,7 +17,7 @@ saveRDS(my_res_200_1, "../output/samples/my_res_200_1_LONGRUN_Intercept_PCA.RDS"
 # 100 x 100 km analysis
 my_data_100_1 <- make.data(my_tree, 100, 1)
 
-my_res_100_1 <- run.R2jags.model(d=my_data_100_1, ni=11e4, nb=1e4, nt=100, nc=3, phy=FALSE, pca=TRUE)
+my_res_100_1 <- run.R2jags.model(d=my_data_100_1, ni=15e4, nb=5e4, nt=100, nc=3, phy=FALSE, pca=TRUE)
 saveRDS(my_res_100_1, "../output/samples/my_res_100_1_LONGRUN_Intercept_PCA.RDS")
 
 # my_res_100_1_phy <- run.R2jags.model(d=my_data_100_1, ni=8.1e4, nb=1e3, nt=200, nc=4, phy=TRUE)

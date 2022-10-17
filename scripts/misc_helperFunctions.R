@@ -27,7 +27,8 @@ compute_occ_shift <- function(my_data, my_sim_matrix,
                     lat=sf::st_coordinates(.)[,2]) %>%
       dplyr::mutate(latClass=cut(lat, 
                                  breaks=c(quantile(lat, probs=c(0, 0.25, 0.5, 0.75, 1))),
-                                 labels=c("Southern", "Core", "Core", "Northern")))
+                                 labels=c("Southern", "Core1", "Core2", "Northern"),
+                                 include.lowest=TRUE))
     
     # Filter the sites according to specifications
     if(site_type=="all"){
@@ -36,17 +37,17 @@ compute_occ_shift <- function(my_data, my_sim_matrix,
       
     } else if(site_type=="core"){
       
-      my_sites <- dplyr::filter(my_sites_filter, latClass=="Core") %>%
+      my_sites <- dplyr::filter(my_sites_filter, latClass %in% c("Core1", "Core2")) %>%
         pull(GID)
       
     } else if(site_type=="south"){
       
-      my_sites <- dplyr::filter(my_sites_filter, latClass=="Southern") %>%
+      my_sites <- dplyr::filter(my_sites_filter, latClass %in% c("Southern")) %>%
         pull(GID)
       
     } else if(site_type=="north"){
       
-      my_sites <- dplyr::filter(my_sites_filter, latClass=="Northern") %>%
+      my_sites <- dplyr::filter(my_sites_filter, latClass %in% c("Northern")) %>%
         pull(GID) 
       
     } else{
@@ -54,21 +55,21 @@ compute_occ_shift <- function(my_data, my_sim_matrix,
       return(0)
     }
     
-    meanTemp_Occ1 <- mean(my_data$my.data$temp[my_sites, 1], na.rm=TRUE)
-    meanPrecip_Occ1 <- mean(my_data$my.data$precip[my_sites, 1], na.rm=TRUE)
+    meanPCA1_Occ1 <- mean(my_data$my.data$PCA1[my_sites, 1], na.rm=TRUE)
+    meanPCA2_Occ1 <- mean(my_data$my.data$PCA2[my_sites, 1], na.rm=TRUE)
     
-    meanTemp_Occ10 <- mean(my_data$my.data$temp[my_sites, 10], na.rm=TRUE)
-    meanPrecip_Occ10 <- mean(my_data$my.data$precip[my_sites, 10], na.rm=TRUE)
+    meanPCA1_Occ10 <- mean(my_data$my.data$PCA1[my_sites, 10], na.rm=TRUE)
+    meanPCA2_Occ10 <- mean(my_data$my.data$PCA2[my_sites, 10], na.rm=TRUE)
     
     meanProb_Occ1 <- plogis(my_sim_matrix[,"mu.psi.0"]+
                               my_sim_matrix[,"psi.area"]*mean(my_data$my.data$gridarea)+
-                              my_sim_matrix[,sprintf("psi.beta.temp[%d]", sp)]*meanTemp_Occ1+
-                              my_sim_matrix[,sprintf("psi.beta.precip[%d]", sp)]*meanPrecip_Occ1)
+                              my_sim_matrix[,sprintf("psi.beta.pca1[%d]", sp)]*meanPCA1_Occ1+
+                              my_sim_matrix[,sprintf("psi.beta.pca2[%d]", sp)]*meanPCA2_Occ1)
     
     meanProb_Occ10 <- plogis(my_sim_matrix[,"mu.psi.0"]+
                                my_sim_matrix[,"psi.area"]*mean(my_data$my.data$gridarea)+
-                               my_sim_matrix[,sprintf("psi.beta.temp[%d]", sp)]*meanTemp_Occ10+
-                               my_sim_matrix[,sprintf("psi.beta.precip[%d]", sp)]*meanPrecip_Occ10)
+                               my_sim_matrix[,sprintf("psi.beta.pca1[%d]", sp)]*meanPCA1_Occ10+
+                               my_sim_matrix[,sprintf("psi.beta.pca2[%d]", sp)]*meanPCA2_Occ10)
     
     meanProb_dx <- meanProb_Occ10-meanProb_Occ1
     
@@ -85,297 +86,212 @@ compute_occ_shift <- function(my_data, my_sim_matrix,
 }
 
 ####################################################################################################
-# FUNCTION: plot_figure_two -
+# FUNCTION: plot_figure_three -
 # Creates figure two given a scale of inference.
 ####################################################################################################
-plot_figure_two <- function(sims_matrix, my_traits, 
-                            scale="100", makeCommOnly=FALSE){
+plot_figure_three <- function(sims_matrix, my_traits, 
+                              scale="100", makeCommOnly=FALSE){
   # Pull the preciperature parameter estimates per species
-  my_temp_samp <- sims_matrix[,grepl("psi.beta.temp", colnames(sims_matrix))]
+  my_pca1_samp <- sims_matrix[,grepl("psi.beta.pca1", colnames(sims_matrix))]
   
   # Extract summary statistics
-  my_temp_mean <- apply(my_temp_samp, 2, mean)
-  my_temp_lower <- apply(my_temp_samp, 2, quantile, probs=c(0.025))
-  my_temp_upper <- apply(my_temp_samp, 2, quantile, probs=c(0.975))
+  my_pca1_mean <- apply(my_pca1_samp, 2, mean)
+  my_pca1_lower <- apply(my_pca1_samp, 2, quantile, probs=c(0.025))
+  my_pca1_upper <- apply(my_pca1_samp, 2, quantile, probs=c(0.975))
   
   # Extract community statistics
-  my_temp_mean_comm <- mean(my_temp_samp)
-  my_temp_int_comm <- quantile(my_temp_samp, probs=c(0.025,0.975))
+  my_pca1_mean_comm <- mean(my_pca1_samp)
+  my_pca1_int_comm <- quantile(my_pca1_samp, probs=c(0.025,0.975))
   
   # Merge the temperature parameter estimates with the species trait data
-  my_temp <- data.frame(mean=my_temp_mean, 
-                        lower=my_temp_lower, 
-                        upper=my_temp_upper) %>%
+  my_pca1 <- data.frame(mean=my_pca1_mean, 
+                        lower=my_pca1_lower, 
+                        upper=my_pca1_upper) %>%
     cbind(my_traits) %>%
     arrange(mean) %>%
     dplyr::mutate(ordering=row_number()) %>%
     dplyr::mutate(trend=ifelse(sign(lower)==-1 & sign(upper)==1,0,
                                ifelse(sign(lower)==-1 & sign(upper)==-1,-1,1))) %>%
-    dplyr::mutate(temperatureClass=cut(ave_temp2, 4))
-  
-  if(makeCommOnly==TRUE){
-    tempEffectsPlotCommOnly <- ggplot()+
-      geom_rect(mapping=aes(xmin=my_temp_int_comm[1], 
-                            xmax=my_temp_int_comm[2], 
-                            ymin=-Inf, ymax=Inf), fill="grey92")+
-      geom_vline(xintercept=my_temp_mean_comm, linetype=1, color="grey72")+
-      geom_vline(xintercept=0, linetype=2, color="black")+
-      geom_pointrange(my_temp, 
-                      mapping=aes(y=ordering,
-                                  x=mean, 
-                                  xmin=lower, 
-                                  xmax=upper, 
-                                  group=SPID), alpha=0, size=0.9,
-                      color=NA)+
-      scale_y_continuous(breaks=c(1:nrow(my_traits)), labels=my_temp$speciesCode)+
-      labs(y="Species Code", x="Effect of Rising Minimum Temperature (°C) on\nOccupancy Probability")+
-      theme_cowplot()+
-      theme(legend.position="top",
-            axis.text.y=element_text(size=9),
-            legend.box="vertical",
-            legend.key.width=unit(1, 'cm'),
-            legend.background=element_rect(fill=alpha("white", 0.9)),
-            plot.background=element_rect(fill="white"))
-  }
+    dplyr::mutate(temperatureClass=cut(ave_temp2, 4, include.lowest=TRUE),
+                  precipitationClass=cut(ave_precip2, 4, include.lowest=TRUE)) %>%
+    dplyr::mutate(trend=ifelse(temperatureClass=="[-12,-5.3]" & precipitationClass=="[195,426]", "Cold/Dry", 
+                               ifelse(temperatureClass=="[-12,-5.3]" & precipitationClass=="(426,656]", "Cold/Average",
+                                      ifelse(temperatureClass=="[-12,-5.3]" & precipitationClass=="(886,1.12e+03]", "Cold/Wet",
+                                             ifelse(temperatureClass=="(8.03,14.7]" & precipitationClass=="[195,426]", "Hot/Dry", 
+                                                    ifelse(temperatureClass=="(8.03,14.7]" & precipitationClass=="(426,656]", "Hot/Average",
+                                                           ifelse(temperatureClass=="(8.03,14.7]" & precipitationClass=="(886,1.12e+03]", "Hot/Wet", "Average/Average")))))))
   
   # Plot the temperature parameter estimates by species
-  tempEffectsPlot <- ggplot()+
-    geom_rect(mapping=aes(xmin=my_temp_int_comm[1], 
-                          xmax=my_temp_int_comm[2], 
-                          ymin=-Inf, ymax=Inf), fill="grey92")+
-    geom_vline(xintercept=my_temp_mean_comm, linetype=1, color="grey72")+
-    geom_vline(xintercept=0, linetype=2, color="black")+
-    geom_pointrange(my_temp, 
-                    mapping=aes(y=ordering,
-                                x=mean, 
-                                xmin=lower, 
-                                xmax=upper, 
+  pca1_effects_plot <- ggplot()+
+    geom_rect(mapping=aes(ymin=my_pca1_int_comm[1], 
+                          ymax=my_pca1_int_comm[2], 
+                          xmin=-Inf, xmax=Inf), fill="grey92")+
+    geom_hline(yintercept=my_pca1_mean_comm, linetype=1, color="grey72")+
+    geom_hline(yintercept=0, linetype=2, color="black")+
+    geom_pointrange(my_pca1, 
+                    mapping=aes(x=ordering,
+                                y=mean, 
+                                ymin=lower, 
+                                ymax=upper, 
                                 group=SPID,
-                                color=ave_temp2), alpha=0.9, size=0.9)+
-    geom_point(my_temp,
-               mapping=aes(y=ordering,
-                           x=mean), pch=21, fill=NA, color="black", alpha=0.9)+
-    scale_y_continuous(breaks=c(1:nrow(my_traits)), labels=my_temp$speciesCode)+
-    scale_color_continuous_divergingx(mid=mean(my_temp$ave_temp2),
-                                      palette="temps", name="Average Annual Range-\nwide Temperature (°C)",
-                                      guide = guide_colorbar(
-                                        direction = "horizontal",
-                                        title.position = "top"
-                                      ))+
-    labs(y="Species Code", x="Effect of Rising Minimum Temperature (°C) on\nOccupancy Probability")+
+                                color=temperatureClass, fill=temperatureClass,
+                                shape=precipitationClass), alpha=1, size=0.9)+
+    scale_x_continuous(breaks=c(1:nrow(my_traits)), labels=my_pca1$speciesCode)+
+    scale_color_manual(values=c("[-12,-5.3]"="#089392",
+                                "(-5.3,1.37]"="#9dcd84",
+                                "(1.37,8.03]"="#eab672",
+                                "(8.03,14.7]"="#cf5a7f"),
+                       labels=c("Coldest", "Colder", "Warmer", "Warmest"),
+                       name="Temperature Class",
+                       guide = guide_legend(
+                         direction = "horizontal",
+                         title.position = "top"
+                       ))+
+    scale_fill_manual(values=c("[-12,-5.3]"="#089392",
+                               "(-5.3,1.37]"="#9dcd84",
+                               "(1.37,8.03]"="#eab672",
+                               "(8.03,14.7]"="#cf5a7f"),
+                      labels=c("Coldest", "Colder", "Warmer", "Warmest"),
+                      name="Temperature Class",
+                      guide = guide_legend(
+                        direction = "horizontal",
+                        title.position = "top"
+                      ))+
+    scale_shape_manual(values=c("[195,426]"=25,
+                                "(426,656]"=22,
+                                "(656,886]"=21,
+                                "(886,1.12e+03]"=24),
+                       labels=c("Driest", "Drier", "Wetter", "Wettest"),
+                       name="Precipitation Class",
+                       guide = guide_legend(
+                         direction = "horizontal",
+                         title.position = "top",
+                         override.aes = list(fill = "black")
+                       ))+
+    labs(x="", y="Effect of Climatic PCA1 Score\non Occupancy Probability")+
     theme_cowplot()+
-    theme(legend.position="top",
-          axis.text.y=element_text(size=9),
+    theme(legend.position=c(0.025, 0.85),
+          legend.background=element_blank(),
+          axis.text.x=element_text(size=9, angle=90, vjust = 0.5, hjust=1),
           legend.box="vertical",
           legend.key.width=unit(1, 'cm'),
-          legend.background=element_rect(fill=alpha("white", 0.9)),
           plot.background=element_rect(fill="white"))
   
   # Pull the precipitation parameter estimates per species
-  my_precip_samp <- sims_matrix[,grepl("psi.beta.precip", colnames(sims_matrix))]
-  my_precip_mean <- apply(my_precip_samp, 2, mean)
-  my_precip_lower <- apply(my_precip_samp, 2, quantile, probs=c(0.025))
-  my_precip_upper <- apply(my_precip_samp, 2, quantile, probs=c(0.975))
+  my_pca2_samp <- sims_matrix[,grepl("psi.beta.pca2", colnames(sims_matrix))]
+  my_pca2_mean <- apply(my_pca2_samp, 2, mean)
+  my_pca2_lower <- apply(my_pca2_samp, 2, quantile, probs=c(0.025))
+  my_pca2_upper <- apply(my_pca2_samp, 2, quantile, probs=c(0.975))
   
   # Extract community statistics
-  my_precip_mean_comm <- mean(my_precip_samp)
-  my_precip_int_comm <- quantile(my_precip_samp, probs=c(0.025,0.975))
+  my_pca2_mean_comm <- mean(my_pca2_samp)
+  my_pca2_int_comm <- quantile(my_pca2_samp, probs=c(0.025,0.975))
   
   # Merge the precipitation parameter estimates with the species trait data
-  my_precip <- data.frame(mean=my_precip_mean, 
-                          lower=my_precip_lower, 
-                          upper=my_precip_upper) %>%
+  my_pca2 <- data.frame(mean=my_pca2_mean, 
+                        lower=my_pca2_lower, 
+                        upper=my_pca2_upper) %>%
     cbind(my_traits) %>%
     arrange(mean) %>%
     dplyr::mutate(ordering=row_number()) %>%
     dplyr::mutate(trend=ifelse(sign(lower)==-1 & sign(upper)==1,0,
                                ifelse(sign(lower)==-1 & sign(upper)==-1,-1,1))) %>%
-    dplyr::mutate(preciperatureClass=cut(ave_precip2, 4))
-  
-  if(makeCommOnly==TRUE){
-    precipEffectsPlotCommOnly <- ggplot()+
-      geom_rect(mapping=aes(xmin=my_precip_int_comm[1], 
-                            xmax=my_precip_int_comm[2], 
-                            ymin=-Inf, ymax=Inf), fill="grey92")+
-      geom_vline(xintercept=my_precip_mean_comm, linetype=1, color="grey72")+
-      geom_vline(xintercept=0, linetype=2, color="black")+
-      geom_pointrange(my_precip, 
-                      mapping=aes(y=ordering,
-                                  x=mean, 
-                                  xmin=lower, 
-                                  xmax=upper, 
-                                  group=SPID), size=0.9, alpha=0,
-                      color=NA)+
-      scale_y_continuous(breaks=c(1:nrow(my_traits)), labels=my_precip$speciesCode)+
-      labs(y="Species Code", x="Estimated Effect of Rising Precipitation (cm) on\nOccupancy Probability")+
-      theme_cowplot()+
-      theme(legend.position="top",
-            axis.text.y=element_text(size=9),
-            legend.box="vertical",
-            legend.key.width=unit(1, 'cm'),
-            legend.background=element_rect(fill=alpha("white", 0.9)),
-            plot.background=element_rect(fill="white"))
-  }
+    dplyr::mutate(temperatureClass=cut(ave_temp2, 4, include.lowest=TRUE),
+                  precipitationClass=cut(ave_precip2, 4, include.lowest=TRUE))
   
   # Plot the precipitation parameter estimates by species
-  precipEffectsPlot <- ggplot()+
-    geom_rect(mapping=aes(xmin=my_precip_int_comm[1], 
-                          xmax=my_precip_int_comm[2], 
-                          ymin=-Inf, ymax=Inf), fill="grey92")+
-    geom_vline(xintercept=my_precip_mean_comm, linetype=1, color="grey72")+
-    geom_vline(xintercept=0, linetype=2, color="black")+
-    geom_pointrange(my_precip, 
-                    mapping=aes(y=ordering,
-                                x=mean, 
-                                xmin=lower, 
-                                xmax=upper, 
+  pca2_effects_plot <- ggplot()+
+    geom_rect(mapping=aes(ymin=my_pca2_int_comm[1], 
+                          ymax=my_pca2_int_comm[2], 
+                          xmin=-Inf, xmax=Inf), fill="grey92")+
+    geom_hline(yintercept=my_pca2_mean_comm, linetype=1, color="grey72")+
+    geom_hline(yintercept=0, linetype=2, color="black")+
+    geom_pointrange(my_pca2, 
+                    mapping=aes(x=ordering,
+                                y=mean, 
+                                ymin=lower, 
+                                ymax=upper, 
                                 group=SPID,
-                                color=ave_precip2), size=0.9, alpha=0.9)+
-    geom_point(my_precip,
-               mapping=aes(y=ordering,
-                           x=mean), pch=21, fill=NA, color="black")+
-    scale_y_continuous(breaks=c(1:nrow(my_traits)), labels=my_precip$speciesCode)+
-    scale_color_continuous_divergingx(mid=mean(my_precip$ave_precip2),
-                                      palette="Earth", name="Average Annual Range-\nwide Precipitation (cm)",
-                                      guide = guide_colorbar(
-                                        direction = "horizontal",
-                                        title.position = "top"
-                                      ))+
-    labs(y="Species Code", x="Estimated Effect of Rising Precipitation (cm) on\nOccupancy Probability")+
+                                color=temperatureClass, fill=temperatureClass,
+                                shape=precipitationClass), alpha=1, size=0.9)+
+    scale_x_continuous(breaks=c(1:nrow(my_traits)), labels=my_pca2$speciesCode)+
+    scale_color_manual(values=c("[-12,-5.3]"="#089392",
+                                "(-5.3,1.37]"="#9dcd84",
+                                "(1.37,8.03]"="#eab672",
+                                "(8.03,14.7]"="#cf5a7f"),
+                       labels=c("Coldest", "Colder", "Warmer", "Warmest"),
+                       name="Temperature Class",
+                       guide = guide_legend(
+                         direction = "horizontal",
+                         title.position = "top"
+                       ))+
+    scale_fill_manual(values=c("[-12,-5.3]"="#089392",
+                                "(-5.3,1.37]"="#9dcd84",
+                                "(1.37,8.03]"="#eab672",
+                                "(8.03,14.7]"="#cf5a7f"),
+                       labels=c("Coldest", "Colder", "Warmer", "Warmest"),
+                       name="Temperature Class",
+                       guide = guide_legend(
+                         direction = "horizontal",
+                         title.position = "top"
+                       ))+
+    scale_shape_manual(values=c("[195,426]"=25,
+                                "(426,656]"=22,
+                                "(656,886]"=21,
+                                "(886,1.12e+03]"=24),
+                       labels=c("Driest", "Drier", "Wetter", "Wettest"),
+                       name="Precipitation Class",
+                       guide = guide_legend(
+                         direction = "horizontal",
+                         title.position = "top"
+                       ))+
+    labs(x="Species Code", y="Effect of Climatic PCA2 Score\non Occupancy Probability")+
     theme_cowplot()+
-    theme(legend.position="top",
-          axis.text.y=element_text(size=9),
-          legend.box="vertical",
-          legend.key.width=unit(1, 'cm'),
-          legend.background=element_rect(fill=alpha("white", 0.9)),
+    theme(legend.position="none",
+          axis.text.x=element_text(size=9, angle=90, vjust = 0.5, hjust=1),
           plot.background=element_rect(fill="white"))
   
-  figure_two_main <- cowplot::plot_grid(tempEffectsPlot, precipEffectsPlot, ncol=2,
+  # Place each panel together into the main figure and save
+  figure_two <- cowplot::plot_grid(pca1_effects_plot, pca2_effects_plot, nrow=2,
                                         labels=c("(a)", "(b)"))
-  
-  if(makeCommOnly==TRUE){
-    figure_two_mainCommOnly <- cowplot::plot_grid(tempEffectsPlotCommOnly, 
-                                                  precipEffectsPlotCommOnly, ncol=2,
-                                                  labels=c("(a)", "(b)"))
-    ggsave2(paste0("../figures/FIGURE_2_", scale, "_CommOnly.png"), 
-            figure_two_mainCommOnly, dpi=400, height=11, width=10)
-  }
-  ggsave2(paste0("../figures/FIGURE_2_", scale, ".png"), 
-          figure_two_main, dpi=400, height=11, width=10)
+  ggsave2(paste0("../figures/main/FIGURE_3_", scale, ".png"), 
+          figure_two, dpi=400, height=10, width=16)
 }
 
 
 ####################################################################################################
-# FUNCTION: plot_figure_three -
-# Creates figure three given a scale of inference.
+# FUNCTION: plot_figure_two -
+# Creates figure two given a scale of inference.
 ####################################################################################################
-plot_figure_three <- function(occ_dx, my_traits, sims_matrix,
+plot_figure_two <- function(occ_dx_core, occ_dx_north, occ_dx_south, 
+                            my_traits, sims_matrix,
                               scale="100"){
   
-  figure_3_a <- ggplot()+
+  occ_dx_core$N_trend <- occ_dx_north[order(match(occ_dx_north[[1]], occ_dx_core$SPID)),] %>%
+    pull(trend)
+  occ_dx_core$S_trend <- occ_dx_south[order(match(occ_dx_south[[1]], occ_dx_core$SPID)),] %>%
+    pull(trend)
+    
+  figure_3 <- ggplot()+
     geom_hline(yintercept=0, linetype=2)+
-    geom_pointrange(occ_dx,
+    geom_pointrange(occ_dx_core,
                     mapping=aes(x=order, y=mean, ymin=lower, ymax=upper, group=SPID,
                                 color=as.factor(trend)),
                     size=1)+
-    geom_point(occ_dx,
-               mapping=aes(x=order, y=mean, group=SPID),
-               shape=21, fill=NA)+
     scale_color_discrete_diverging(palette="Berlin", rev=TRUE,
-                                   labels=c("Decreasing", "Stable",
-                                            "Increasing"),
-                                   name="Overall Trend")+
+                                   labels=c("Declining", "Overlap Zero", "Increasing"),
+                                   name="Trend")+
     scale_x_continuous(breaks=seq(1:nrow(my_traits)), labels=occ_dx$speciesCode,
                        name="Species Code")+
-    scale_y_continuous(labels=scales::percent, name="Mean In-range\nOccupancy Shift")+
+    scale_y_continuous(labels=scales::percent, 
+                       name="Mean In-range Occupancy Shift\n(1970-1974 to 2015-2019)")+
     theme_cowplot()+
-    theme(axis.text.x=element_text(angle=90, vjust=0.5, hjust=1, size=9),
-          legend.position=c(0.05, 0.9),
-          legend.direction="horizontal")
+    theme(axis.text.x=element_text(size=9, angle=90, vjust=0.5, hjust=1),
+          legend.position=c(0.025, 0.95),
+          legend.direction="horizontal",
+          plot.background=element_rect(fill="white"))
   
-  # Pull the temperature parameter estimates per species
-  my_temp_samp <- sims_matrix[,grepl("psi.beta.temp", colnames(sims_matrix))]
-  
-  # Extract summary statistics
-  my_temp_mean <- apply(my_temp_samp, 2, mean)
-  my_temp_lower <- apply(my_temp_samp, 2, quantile, probs=c(0.025))
-  my_temp_upper <- apply(my_temp_samp, 2, quantile, probs=c(0.975))
-  
-  # Extract community statistics
-  my_temp_mean_comm <- mean(my_temp_samp)
-  my_temp_int_comm <- quantile(my_temp_samp, probs=c(0.025,0.975))
-  
-  # Merge the temperature parameter estimates with the species trait data
-  my_temp <- data.frame(my_temp_mean=my_temp_mean, 
-                        my_temp_lower=my_temp_lower, 
-                        my_temp_upper=my_temp_upper) %>%
-    dplyr::mutate(SPID=c(1:70))
-  
-  # Pull the precipitation parameter estimates per species
-  my_precip_samp <- sims_matrix[,grepl("psi.beta.precip", colnames(sims_matrix))]
-  my_precip_mean <- apply(my_precip_samp, 2, mean)
-  my_precip_lower <- apply(my_precip_samp, 2, quantile, probs=c(0.025))
-  my_precip_upper <- apply(my_precip_samp, 2, quantile, probs=c(0.975))
-  
-  # Extract community statistics
-  my_precip_mean_comm <- mean(my_precip_samp)
-  my_precip_int_comm <- quantile(my_precip_samp, probs=c(0.025,0.975))
-  
-  # Merge the precipitation parameter estimates with the species trait data
-  my_precip <- data.frame(my_precip_mean=my_precip_mean, 
-                          my_precip_lower=my_precip_lower, 
-                          my_precip_upper=my_precip_upper) %>%
-    dplyr::mutate(SPID=c(1:70))
-  
-  all_effects <- inner_join(my_temp, my_precip, by="SPID") %>%
-    inner_join(occ_dx, by="SPID") %>%
-    dplyr::select(SPID, my_temp_mean, my_precip_mean, mean, trend) %>%
-    gather("Metric", "Value", -c(SPID, trend)) %>%
-    dplyr::mutate(Position=ifelse(Metric=="my_temp_mean", 1,
-                                  ifelse(Metric=="my_precip_mean", 3, 2)),
-                  Value=ifelse(Metric=="mean", Value*100, Value)) %>%
-    inner_join(my_traits, by="SPID")
-  
-  figure_3_b <- ggplot()+
-    geom_line(all_effects,
-              mapping=aes(x=Position, y=Value, group=SPID), alpha=0.5)+
-    geom_point(dplyr::filter(all_effects, Position==1),
-               mapping=aes(x=Position, y=Value, color=ave_temp2), 
-               size=3)+
-    scale_color_continuous_divergingx(mid=mean(my_traits$ave_temp2),
-                                      palette="temps", 
-                                      name="Average Annual Range-\nwide Temperature (°C)",
-                                      guide = guide_colorbar(
-                                        direction = "horizontal",
-                                        title.position = "top"
-                                      ))+
-    ggnewscale::new_scale_color()+
-    geom_point(dplyr::filter(all_effects, Position==3),
-               mapping=aes(x=Position, y=Value, color=ave_precip2), 
-               size=3)+
-    scale_color_continuous_divergingx(mid=mean(my_traits$ave_precip2),
-                                      palette="Earth", 
-                                      name="Average Annual Range-\nwide Precipitation (cm)",
-                                      guide = guide_colorbar(
-                                        direction = "horizontal",
-                                        title.position = "top"
-                                      ))+
-    ggnewscale::new_scale_color()+
-    geom_point(dplyr::filter(all_effects, Position==2),
-               mapping=aes(x=Position, y=Value, color=as.factor(trend)), 
-               size=3)+
-    scale_color_discrete_diverging(palette="Berlin", rev=TRUE,
-                                   labels=c("Decreasing", "Stable",
-                                            "Increasing"),
-                                   name="Overall Trend")+
-    scale_x_continuous(breaks=c(1,2,3), labels=c("Temp. Effect", "Occ. Dx", "Precip. Effect"))+
-    labs(x="Parameter Name", y="Parameter Estimate")+
-    theme_cowplot()+
-    theme(legend.position="none")
-  
-  figure_3 <- cowplot::plot_grid(figure_3_a, figure_3_b, ncol=2,
-                                 labels=c("(a)", "(b)"), rel_widths=c(1,0.3))
-  ggsave(paste0("../figures/FIGURE_3_", scale, ".png"), dpi=400, height=4, width=14)
+  ggsave2(paste0("../figures/main/FIGURE_2_", scale, ".png"), figure_3, dpi=400, height=6, width=12)
   
 }
 

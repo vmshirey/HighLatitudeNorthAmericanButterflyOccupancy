@@ -18,7 +18,7 @@ run.R2jags.model <- function(d,
   }
   if(phy == FALSE){
     
-    if(pca=TRUE){
+    if(pca==TRUE){
       model.file = "model_intercept_pca.txt"
       my.params <- c("mu.p.0", "p.yr", "sigma.p.sp", "sigma.p.site", "mu.psi.0",
                      "psi.yr", "sigma.psi.yr", "psi.site", "sigma.psi.site", 
