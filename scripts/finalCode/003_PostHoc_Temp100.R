@@ -216,7 +216,7 @@ FIGURE_THREE_A <- ggplot()+
                      labels=core_dx_df$code,
                      expand=expansion(add=1),
                      name="Species Code")+
-  scale_y_continuous(labels=scales::percent(add_plusses=TRUE),
+  scale_y_continuous(labels=scales::label_percent(add_plusses=TRUE),
                      name="Average Occupancy Gain/Loss\nfrom the 1970s to 2010s")+
   theme_cowplot()+
   theme(legend.position=c(0.05,0.85),
@@ -238,7 +238,7 @@ FIGURE_THREE <- cowplot::ggdraw()+
                                plot.background=element_rect(fill=NA)),
             x=0.325, y=0.55,
             width=0.3, height=0.35)
-ggsave2("../../figures/main/FIGURE_3.png", FIGURE_THREE, dpi=400, height=7, width=12)
+ggsave2("../../figures/main/FIGURE_3.png", FIGURE_THREE, dpi=400, height=6, width=12)
 
 ## TRAIT-BASED ANALYSES ############################################################################
 
@@ -254,6 +254,8 @@ core_dx_df <- master_dx_df %>%
                 edgeAffinity_z = factor(edgeAffinity, levels=c("Geenralist", "Avoidant", "Associated")),
                 canopyAffinity_z = factor(canopyAffinity, levels=c("Generalist", "Mixed", "Open")),
                 voltinism_z = factor(voltinism, levels=c("Univoltine", "Multivoltine"))) %>%
+  dplyr::select(species, mean, se, rangeSize_z, aveWingspan_z, numReportedHostplantFamilies_z,
+                diapauseStage_z, disturbanceAffinity_z) %>%
   dplyr::filter(complete.cases(.))
 
 northern_dx_df <- master_dx_df %>%
@@ -267,6 +269,8 @@ northern_dx_df <- master_dx_df %>%
                 edgeAffinity_z = factor(edgeAffinity, levels=c("Geenralist", "Avoidant", "Associated")),
                 canopyAffinity_z = factor(canopyAffinity, levels=c("Generalist", "Mixed", "Open")),
                 voltinism_z = factor(voltinism, levels=c("Univoltine", "Multivoltine"))) %>%
+  dplyr::select(species, mean, se, rangeSize_z, aveWingspan_z, numReportedHostplantFamilies_z,
+                diapauseStage_z, disturbanceAffinity_z) %>%
   dplyr::filter(complete.cases(.))
 
 southern_dx_df <- master_dx_df %>%
@@ -280,55 +284,84 @@ southern_dx_df <- master_dx_df %>%
                 edgeAffinity_z = factor(edgeAffinity, levels=c("Geenralist", "Avoidant", "Associated")),
                 canopyAffinity_z = factor(canopyAffinity, levels=c("Generalist", "Mixed", "Open")),
                 voltinism_z = factor(voltinism, levels=c("Univoltine", "Multivoltine"))) %>%
+  dplyr::select(species, mean, se, rangeSize_z, aveWingspan_z, numReportedHostplantFamilies_z,
+                diapauseStage_z, disturbanceAffinity_z) %>%
   dplyr::filter(complete.cases(.))
 
 # INTERCEPT ONLY MODELS
-my_fit_1_core <- brms::brm(mean|mi(se)~1,
-                           data=core_dx_df)
-my_fit_1_north <- brms::brm(mean|mi(se)~1,
-                            data=northern_dx_df)
-my_fit_1_south <- brms::brm(mean|mi(se)~1,
-                            data=southern_dx_df)
+my_fit_1_core <- brms::brm(mean|se(se)~1,
+                           data=core_dx_df,
+                           iter=50000,
+                           warmup=25000,
+                           thin=25)
+my_fit_1_north <- brms::brm(mean|se(se)~1,
+                            data=northern_dx_df,
+                            iter=50000,
+                            warmup=25000,
+                            thin=25)
+my_fit_1_south <- brms::brm(mean|se(se)~1,
+                            data=southern_dx_df,
+                            iter=50000,
+                            warmup=25000,
+                            thin=25)
 
 # PHYLOGENETIC INTERCEPT MODELS
-my_fit_2_core <- brms::brm(mean|mi(se)~1+
+my_fit_2_core <- brms::brm(mean|se(se)~1+
                              (1|gr(species, cov=sp_tree)),
                            data=core_dx_df,
-                           data2=list(sp_tree=sp_tree))
-my_fit_2_north <- brms::brm(mean|mi(se)~1+
+                           data2=list(sp_tree=sp_tree),
+                           iter=50000,
+                           warmup=25000,
+                           thin=25)
+my_fit_2_north <- brms::brm(mean|se(se)~1+
                               (1|gr(species, cov=sp_tree)),
                             data=northern_dx_df,
-                            data2=list(sp_tree=sp_tree))
-my_fit_2_south <- brms::brm(mean|mi(se)~1+
+                            data2=list(sp_tree=sp_tree),
+                            iter=50000,
+                            warmup=25000,
+                            thin=25)
+my_fit_2_south <- brms::brm(mean|se(se)~1+
                               (1|gr(species, cov=sp_tree)),
                             data=southern_dx_df,
-                            data2=list(sp_tree=sp_tree))
+                            data2=list(sp_tree=sp_tree),
+                            iter=50000,
+                            warmup=25000,
+                            thin=25)
 
 # TRAIT ONLY MODELS
-my_fit_3_core <- brms::brm(mean|mi(se)~1+
+my_fit_3_core <- brms::brm(mean|se(se)~1+
                              rangeSize_z+
                              aveWingspan_z+
                              numReportedHostplantFamilies_z+
                              diapauseStage_z+
                              disturbanceAffinity_z,
-                           data=core_dx_df)
-my_fit_3_north <- brms::brm(mean|mi(se)~1+
+                           data=core_dx_df,
+                           iter=50000,
+                           warmup=25000,
+                           thin=25)
+my_fit_3_north <- brms::brm(mean|se(se)~1+
                               rangeSize_z+
                               aveWingspan_z+
                               numReportedHostplantFamilies_z+
                               diapauseStage_z+
                               disturbanceAffinity_z,
-                            data=northern_dx_df)
-my_fit_3_south <- brms::brm(mean|mi(se)~1+
+                            data=northern_dx_df,
+                            iter=50000,
+                            warmup=25000,
+                            thin=25)
+my_fit_3_south <- brms::brm(mean|se(se)~1+
                               rangeSize_z+
                               aveWingspan_z+
                               numReportedHostplantFamilies_z+
                               diapauseStage_z+
                               disturbanceAffinity_z,
-                            data=southern_dx_df)
+                            data=southern_dx_df,
+                            iter=50000,
+                            warmup=25000,
+                            thin=25)
 
 # TRAIT AND PHYLOGENY MODELS
-my_fit_4_core <- brms::brm(mean|mi(se)~1+
+my_fit_4_core <- brms::brm(mean|se(se)~1+
                              rangeSize_z+
                              aveWingspan_z+
                              numReportedHostplantFamilies_z+
@@ -336,8 +369,11 @@ my_fit_4_core <- brms::brm(mean|mi(se)~1+
                              disturbanceAffinity_z+
                              (1|gr(species, cov=sp_tree)),
                            data=core_dx_df,
-                           data2=list(sp_tree=sp_tree))
-my_fit_4_north <- brms::brm(mean|mi(se)~1+
+                           data2=list(sp_tree=sp_tree),
+                           iter=50000,
+                           warmup=25000,
+                           thin=25)
+my_fit_4_north <- brms::brm(mean|se(se)~1+
                               rangeSize_z+
                               aveWingspan_z+
                               numReportedHostplantFamilies_z+
@@ -345,8 +381,11 @@ my_fit_4_north <- brms::brm(mean|mi(se)~1+
                               disturbanceAffinity_z+
                               (1|gr(species, cov=sp_tree)),
                             data=northern_dx_df,
-                            data2=list(sp_tree=sp_tree))
-my_fit_4_south <- brms::brm(mean|mi(se)~1+
+                            data2=list(sp_tree=sp_tree),
+                            iter=50000,
+                            warmup=25000,
+                            thin=25)
+my_fit_4_south <- brms::brm(mean|se(se)~1+
                               rangeSize_z+
                               aveWingspan_z+
                               numReportedHostplantFamilies_z+
@@ -354,11 +393,37 @@ my_fit_4_south <- brms::brm(mean|mi(se)~1+
                               disturbanceAffinity_z+
                               (1|gr(species, cov=sp_tree)),
                             data=southern_dx_df,
-                            data2=list(sp_tree=sp_tree))
+                            data2=list(sp_tree=sp_tree),
+                            iter=50000,
+                            warmup=25000,
+                            thin=25)
 
 # Compare all models to assess which model is the top model for each geographic
 # context.
+loo::loo_compare(loo::loo(my_fit_1_core), 
+                 loo::loo(my_fit_2_core), 
+                 loo::loo(my_fit_3_core), 
+                 loo::loo(my_fit_4_core))
+
 loo::loo_compare(loo::loo(my_fit_1_north), 
                  loo::loo(my_fit_2_north), 
                  loo::loo(my_fit_3_north), 
                  loo::loo(my_fit_4_north))
+
+loo::loo_compare(loo::loo(my_fit_1_south), 
+                 loo::loo(my_fit_2_south), 
+                 loo::loo(my_fit_3_south), 
+                 loo::loo(my_fit_4_south))
+
+hyp <- "sd_species__Intercept^2 / (sd_species__Intercept^2 + sigma^2) = 0"
+(hyp <- brms::hypothesis(my_fit_4_core, hyp, class = NULL))
+
+hyp <- "sd_species__Intercept^2 / (sd_species__Intercept^2 + sigma^2) = 0"
+(hyp <- brms::hypothesis(my_fit_4_north, hyp, class = NULL))
+
+hyp <- "sd_species__Intercept^2 / (sd_species__Intercept^2 + sigma^2) = 0"
+(hyp <- brms::hypothesis(my_fit_4_south, hyp, class = NULL))
+
+# Grab the draws from the top candidate model
+my_draws_4_core <- tidybayes::spread_draws(my_fit_4_core,
+                                           r_species[species,term])
