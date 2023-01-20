@@ -73,23 +73,17 @@ for(i in 1:length(raster_occ_dx)){
                         mean=mean(dplyr::filter(my_rast_sf, 
                                                 group==my_lat_groups[3])$layer),
                         se=sd(dplyr::filter(my_rast_sf, 
-                                            group==my_lat_groups[3])$layer)/
-                          sqrt(nrow(dplyr::filter(my_rast_sf, 
-                                                  group==my_lat_groups[3]))))
+                                            group==my_lat_groups[3])$layer))
   southern_dx[[i]] <- c(SPID=i,
                         mean=mean(dplyr::filter(my_rast_sf, 
                                                 group==my_lat_groups[1])$layer),
                         se=sd(dplyr::filter(my_rast_sf, 
-                                            group==my_lat_groups[1])$layer)/
-                          sqrt(nrow(dplyr::filter(my_rast_sf, 
-                                                  group==my_lat_groups[1])))) 
+                                            group==my_lat_groups[1])$layer)) 
   core_dx[[i]] <- c(SPID=i,
                     mean=mean(dplyr::filter(my_rast_sf, 
                                             group==my_lat_groups[2])$layer),
                     se=sd(dplyr::filter(my_rast_sf, 
-                                        group==my_lat_groups[2])$layer)/
-                      sqrt(nrow(dplyr::filter(my_rast_sf, 
-                                              group==my_lat_groups[2])))) 
+                                        group==my_lat_groups[2])$layer)) 
   
   # Create the occupancy shift map and save to a .pdf file
   my_occ_dx_map <- ggplot()+
@@ -175,7 +169,7 @@ FIGURE_THREE_A <- ggplot()+
                               ymin=mean-se,
                               fill=rangeTemp,
                               color=rangeTemp),
-                  shape=24, size=0.25,
+                  shape=24, size=0.1,
                   position=position_nudge(x=0.25))+
   geom_pointrange(core_dx_df,
                   mapping=aes(x=ordering, 
@@ -184,7 +178,7 @@ FIGURE_THREE_A <- ggplot()+
                               ymin=mean-se,
                               fill=rangeTemp,
                               color=rangeTemp),
-                  shape=21, size=0.25)+
+                  shape=21, size=0.1)+
   geom_pointrange(southern_dx_df,
                   mapping=aes(x=ordering, 
                               y=mean, 
@@ -192,7 +186,7 @@ FIGURE_THREE_A <- ggplot()+
                               ymin=mean-se,
                               fill=rangeTemp,
                               color=rangeTemp),
-                  shape=25, size=0.25,
+                  shape=25, size=0.1,
                   position=position_nudge(x=-0.25))+
   scale_shape_manual(values=c(21, 24, 25), name="Geographic Context", 
                      labels=c("Core", "Northern", "Southern"),
@@ -241,7 +235,6 @@ FIGURE_THREE <- cowplot::ggdraw()+
 ggsave2("../../figures/main/FIGURE_3.png", FIGURE_THREE, dpi=400, height=6, width=12)
 
 ## TRAIT-BASED ANALYSES ############################################################################
-
 # Scale the data and set reference levels for all categorical predictors
 core_dx_df <- master_dx_df %>%
   dplyr::filter(geo=="core") %>%
@@ -288,80 +281,97 @@ southern_dx_df <- master_dx_df %>%
                 diapauseStage_z, disturbanceAffinity_z) %>%
   dplyr::filter(complete.cases(.))
 
+sp_tree <- ape::read.tree("../../data/taxa/SupDryad_treepl.tre")
+sp_tree$tip.label <- str_replace_all(sp_tree$tip.label, "_", " ")
+sp_tree$tip.label <- stringr::word(sp_tree$tip.label, start=3, end=4)
+  
+sp_tree <- sp_tree %>%
+  ape::keep.tip(core_dx_df$species)
+  ape::vcv.phylo()
+
 # INTERCEPT ONLY MODELS
-my_fit_1_core <- brms::brm(mean|se(se)~1,
-                           data=core_dx_df,
-                           iter=50000,
-                           warmup=25000,
-                           thin=25)
-my_fit_1_north <- brms::brm(mean|se(se)~1,
+my_fit_1_core <- brms::brm(mean~1,
+                           data=northern_dx_df,
+                           iter=100000,
+                           warmup=50000,
+                           thin=50,
+                           family=gaussian())
+my_fit_1_north <- brms::brm(mean~1,
                             data=northern_dx_df,
-                            iter=50000,
-                            warmup=25000,
-                            thin=25)
-my_fit_1_south <- brms::brm(mean|se(se)~1,
+                            iter=100000,
+                            warmup=50000,
+                            thin=50,
+                            family=gaussian())
+my_fit_1_south <- brms::brm(mean~1,
                             data=southern_dx_df,
-                            iter=50000,
-                            warmup=25000,
-                            thin=25)
+                            iter=100000,
+                            warmup=50000,
+                            thin=50,
+                            family=gaussian())
 
 # PHYLOGENETIC INTERCEPT MODELS
-my_fit_2_core <- brms::brm(mean|se(se)~1+
+my_fit_2_core <- brms::brm(mean~1+
                              (1|gr(species, cov=sp_tree)),
                            data=core_dx_df,
                            data2=list(sp_tree=sp_tree),
-                           iter=50000,
-                           warmup=25000,
-                           thin=25)
-my_fit_2_north <- brms::brm(mean|se(se)~1+
+                           iter=100000,
+                           warmup=50000,
+                           thin=50,
+                           family=gaussian())
+my_fit_2_north <- brms::brm(mean~1+
                               (1|gr(species, cov=sp_tree)),
                             data=northern_dx_df,
                             data2=list(sp_tree=sp_tree),
-                            iter=50000,
-                            warmup=25000,
-                            thin=25)
-my_fit_2_south <- brms::brm(mean|se(se)~1+
+                            iter=100000,
+                            warmup=50000,
+                            thin=50,
+                            family=gaussian())
+my_fit_2_south <- brms::brm(mean~1+
                               (1|gr(species, cov=sp_tree)),
                             data=southern_dx_df,
                             data2=list(sp_tree=sp_tree),
-                            iter=50000,
-                            warmup=25000,
-                            thin=25)
+                            iter=100000,
+                            warmup=50000,
+                            thin=50,
+                            family=gaussian())
 
 # TRAIT ONLY MODELS
-my_fit_3_core <- brms::brm(mean|se(se)~1+
+my_fit_3_core <- brms::brm(mean~1+
                              rangeSize_z+
                              aveWingspan_z+
                              numReportedHostplantFamilies_z+
                              diapauseStage_z+
                              disturbanceAffinity_z,
                            data=core_dx_df,
-                           iter=50000,
-                           warmup=25000,
-                           thin=25)
-my_fit_3_north <- brms::brm(mean|se(se)~1+
+                           iter=100000,
+                           warmup=50000,
+                           thin=50,
+                           family=gaussian())
+my_fit_3_north <- brms::brm(mean~1+
                               rangeSize_z+
                               aveWingspan_z+
                               numReportedHostplantFamilies_z+
                               diapauseStage_z+
                               disturbanceAffinity_z,
                             data=northern_dx_df,
-                            iter=50000,
-                            warmup=25000,
-                            thin=25)
-my_fit_3_south <- brms::brm(mean|se(se)~1+
+                            iter=100000,
+                            warmup=50000,
+                            thin=50,
+                            family=gaussian())
+my_fit_3_south <- brms::brm(mean~1+
                               rangeSize_z+
                               aveWingspan_z+
                               numReportedHostplantFamilies_z+
                               diapauseStage_z+
                               disturbanceAffinity_z,
                             data=southern_dx_df,
-                            iter=50000,
-                            warmup=25000,
-                            thin=25)
+                            iter=100000,
+                            warmup=50000,
+                            thin=50,
+                            family=gaussian())
 
 # TRAIT AND PHYLOGENY MODELS
-my_fit_4_core <- brms::brm(mean|se(se)~1+
+my_fit_4_core <- brms::brm(mean~1+
                              rangeSize_z+
                              aveWingspan_z+
                              numReportedHostplantFamilies_z+
@@ -370,10 +380,11 @@ my_fit_4_core <- brms::brm(mean|se(se)~1+
                              (1|gr(species, cov=sp_tree)),
                            data=core_dx_df,
                            data2=list(sp_tree=sp_tree),
-                           iter=50000,
-                           warmup=25000,
-                           thin=25)
-my_fit_4_north <- brms::brm(mean|se(se)~1+
+                           iter=100000,
+                           warmup=50000,
+                           thin=50,
+                           family=gaussian())
+my_fit_4_north <- brms::brm(mean~1+
                               rangeSize_z+
                               aveWingspan_z+
                               numReportedHostplantFamilies_z+
@@ -382,10 +393,11 @@ my_fit_4_north <- brms::brm(mean|se(se)~1+
                               (1|gr(species, cov=sp_tree)),
                             data=northern_dx_df,
                             data2=list(sp_tree=sp_tree),
-                            iter=50000,
-                            warmup=25000,
-                            thin=25)
-my_fit_4_south <- brms::brm(mean|se(se)~1+
+                            iter=100000,
+                            warmup=50000,
+                            thin=50,
+                            family=gaussian())
+my_fit_4_south <- brms::brm(mean~1+
                               rangeSize_z+
                               aveWingspan_z+
                               numReportedHostplantFamilies_z+
@@ -394,9 +406,10 @@ my_fit_4_south <- brms::brm(mean|se(se)~1+
                               (1|gr(species, cov=sp_tree)),
                             data=southern_dx_df,
                             data2=list(sp_tree=sp_tree),
-                            iter=50000,
-                            warmup=25000,
-                            thin=25)
+                            iter=100000,
+                            warmup=50000,
+                            thin=50,
+                            family=gaussian())
 
 # Compare all models to assess which model is the top model for each geographic
 # context.
@@ -416,6 +429,8 @@ loo::loo_compare(loo::loo(my_fit_1_south),
                  loo::loo(my_fit_4_south))
 
 hyp <- "sd_species__Intercept^2 / (sd_species__Intercept^2 + sigma^2) = 0"
+(hyp <- brms::hypothesis(my_fit_2_core, hyp, class = NULL))
+hyp <- "sd_species__Intercept^2 / (sd_species__Intercept^2 + sigma^2) = 0"
 (hyp <- brms::hypothesis(my_fit_4_core, hyp, class = NULL))
 
 hyp <- "sd_species__Intercept^2 / (sd_species__Intercept^2 + sigma^2) = 0"
@@ -425,5 +440,153 @@ hyp <- "sd_species__Intercept^2 / (sd_species__Intercept^2 + sigma^2) = 0"
 (hyp <- brms::hypothesis(my_fit_4_south, hyp, class = NULL))
 
 # Grab the draws from the top candidate model
-my_draws_4_core <- tidybayes::spread_draws(my_fit_4_core,
-                                           r_species[species,term])
+sp_traits <- sp_traits %>%
+  dplyr::select(family, species) %>%
+  arrange(family) %>%
+  group_by(family) %>%
+  arrange(species, .by_group=TRUE) %>%
+  ungroup() %>%
+  dplyr::mutate(globalOrdering=row_number())
+
+
+# Pull the trait parameter estimates
+my_draws_4_south <- tidybayes::gather_draws(my_fit_4_south,
+                                            b_Intercept, b_rangeSize_z,
+                                            b_aveWingspan_z, b_numReportedHostplantFamilies_z,
+                                            b_diapauseStage_zEgg, b_diapauseStage_zPupa,
+                                            b_diapauseStage_zAdult, b_disturbanceAffinity_zAvoidant,
+                                            b_disturbanceAffinity_zAssociated, regex=TRUE) %>%
+  dplyr::mutate(.variable=str_replace(.variable, "b_", "")) %>%
+  dplyr::mutate(.variable=factor(.variable, levels=c("rangeSize_z",
+                                                     "aveWingspan_z",
+                                                     "numReportedHostplantFamilies_z",
+                                                     "disturbanceAffinity_zAvoidant",
+                                                     "disturbanceAffinity_zAssociated",
+                                                     "diapauseStage_zAdult",
+                                                     "diapauseStage_zPupa",
+                                                     "diapauseStage_zEgg",
+                                                     "Intercept")))
+
+my_draws_4_core <- tidybayes::gather_draws(my_fit_4_core,
+                                           b_Intercept, b_rangeSize_z,
+                                           b_aveWingspan_z, b_numReportedHostplantFamilies_z,
+                                           b_diapauseStage_zEgg, b_diapauseStage_zPupa,
+                                           b_diapauseStage_zAdult, b_disturbanceAffinity_zAvoidant,
+                                           b_disturbanceAffinity_zAssociated, regex=TRUE) %>%
+  dplyr::mutate(.variable=str_replace(.variable, "b_", "")) %>%
+  dplyr::mutate(.variable=factor(.variable, levels=c("rangeSize_z",
+                                                     "aveWingspan_z",
+                                                     "numReportedHostplantFamilies_z",
+                                                     "disturbanceAffinity_zAvoidant",
+                                                     "disturbanceAffinity_zAssociated",
+                                                     "diapauseStage_zAdult",
+                                                     "diapauseStage_zPupa",
+                                                     "diapauseStage_zEgg",
+                                                     "Intercept")))
+
+my_draws_4_north <- tidybayes::gather_draws(my_fit_4_north,
+                                            b_Intercept, b_rangeSize_z,
+                                            b_aveWingspan_z, b_numReportedHostplantFamilies_z,
+                                            b_diapauseStage_zEgg, b_diapauseStage_zPupa,
+                                            b_diapauseStage_zAdult, b_disturbanceAffinity_zAvoidant,
+                                            b_disturbanceAffinity_zAssociated, regex=TRUE) %>%
+  dplyr::mutate(.variable=str_replace(.variable, "b_", "")) %>%
+  dplyr::mutate(.variable=factor(.variable, levels=c("rangeSize_z",
+                                                     "aveWingspan_z",
+                                                     "numReportedHostplantFamilies_z",
+                                                     "disturbanceAffinity_zAvoidant",
+                                                     "disturbanceAffinity_zAssociated",
+                                                     "diapauseStage_zAdult",
+                                                     "diapauseStage_zPupa",
+                                                     "diapauseStage_zEgg",
+                                                     "Intercept")))
+
+my_plot_4_south <- ggplot()+
+  tidybayes::stat_interval(my_draws_4_south,
+                           mapping=aes(y=.variable, x=.value))+
+  geom_vline(xintercept=0, linetype=2)+
+  scale_y_discrete(labels=c("Range Size", "Wingspan", "Hostplant Breadth",
+                            "Disturbance Avoidant", "Disturbance Associated",
+                            "Overwintering Adults", "Overwintering Pupa",
+                            "Overwintering Eggs", "Intercept"))+
+  scale_x_continuous(limits=c(-0.1, 0.1))+
+  scale_color_brewer(palette="Reds", name="Cred. Int.")+
+  ylab("")+
+  xlab(" ")+
+  tidybayes::theme_tidybayes()
+
+my_plot_4_core <- ggplot()+
+  tidybayes::stat_interval(my_draws_4_core,
+                           mapping=aes(y=.variable, x=.value))+
+  geom_vline(xintercept=0, linetype=2)+
+  scale_y_discrete(labels=c("Range Size", "Wingspan", "Hostplant Breadth",
+                            "Disturbance Avoidant", "Disturbance Associated",
+                            "Overwintering Adults", "Overwintering Pupa",
+                            "Overwintering Eggs", "Intercept"))+
+  scale_x_continuous(limits=c(-0.1, 0.1))+
+  scale_color_brewer(palette="Greys", name="Cred. Int.")+
+  ylab("")+
+  xlab(" ")+
+  tidybayes::theme_tidybayes()
+
+my_plot_4_north <- ggplot()+
+  tidybayes::stat_interval(my_draws_4_north,
+                           mapping=aes(y=.variable, x=.value))+
+  geom_vline(xintercept=0, linetype=2)+
+  scale_y_discrete(labels=c("Range Size", "Wingspan", "Hostplant Breadth",
+                            "Disturbance Avoidant", "Disturbance Associated",
+                            "Overwintering Adults", "Overwintering Pupa",
+                            "Overwintering Eggs", "Intercept"))+
+  scale_x_continuous(limits=c(-0.1, 0.1))+
+  scale_color_brewer(palette="Blues", name="Cred. Int.")+
+  ylab("")+
+  xlab("Parameter Estimate")+
+  tidybayes::theme_tidybayes()
+
+effect_plot <- cowplot::plot_grid(my_plot_4_south, 
+                                  my_plot_4_core, 
+                                  my_plot_4_north,
+                                  nrow=3, labels=c("(a)", "(b)", "(c)"),
+                                  align="v")
+ggsave2("../../figures/main/FIGURE_4.png", effect_plot, 
+        dpi=400, height=6, width=8)
+
+## PLOT PHYLOGENETIC INTERCEPTS ON TREE STRUCTURE ##################################################
+# Pull the phylogenetic intercepts, summarize by species
+my_draws_4_core_phylo <- tidybayes::spread_draws(my_fit_4_core,
+                                                 r_species[species,term]) %>%
+  dplyr::mutate(species=str_replace(species, "[.]", " ")) %>%
+  dplyr::group_by(species) %>%
+  dplyr::mutate(mean=mean(r_species),
+                sd=sd(r_species)) %>%
+  dplyr::mutate(crossZero=ifelse(between(0, mean-sd, mean+sd), TRUE, FALSE)) %>%
+  dplyr::select(species, mean, sd, crossZero) %>%
+  dplyr::ungroup() %>%
+  unique() %>%
+  dplyr::mutate(color=ifelse(crossZero==TRUE, NA, mean),
+                alpha=scales::rescale(1-sd, c(0.7,1)))
+
+my_tree <- readRDS("../../output/tree_topology.rds") %>%
+  ape::keep.tip(tip=my_draws_4_core_phylo$species) %>%
+  tidytree::full_join(my_draws_4_core_phylo, by=c("label"="species"))
+
+ggtree::ggtree(my_tree)+
+  # ggtree::geom_hilight(node=92, fill="red", color=NA)+
+  # ggtree::geom_hilight(node=105, fill="red", color=NA)+
+  # ggtree::geom_hilight(node=114, fill="red", color=NA)+
+  # ggtree::geom_hilight(node=118, fill="blue", color=NA)+
+  # ggtree::geom_hilight(node=80, fill="red", color=NA)+
+  # ggtree::geom_hilight(node=70, fill="red", color=NA)+
+  ggtree::geom_tippoint(mapping=aes(color=mean),
+                        size=2)+
+  scale_color_gradientn(colors=c("firebrick1", "firebrick4","grey45",
+                                             "dodgerblue", "dodgerblue4"))+
+  ggtree::geom_tiplab(offset=1)+
+  # ggtree::geom_nodelab(mapping=aes(label=node))+
+  xlim(c(-10,175))+
+  ggtree::theme_tree()+
+  theme(legend.position="none")
+ggsave2("../../figures/main/FIGURE_5.png", dpi=400,
+        height=8, width=8)
+
+
