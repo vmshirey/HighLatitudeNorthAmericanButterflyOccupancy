@@ -289,6 +289,8 @@ precip <- raster::projectRaster(precip, crs=crs_1)
 # Clip both rasters to only terrestrial records
 temp <- raster::mask(temp, basemap)
 precip <- raster::mask(precip, basemap)
+precip[precip < 0] <- NA
+precip[precip > 10000] <- NA
 
 # Average climate raster data into grids
 grid_100_temp <- exactextractr::exact_extract(temp, grid_100, fun="mean") %>%
@@ -309,3 +311,82 @@ saveRDS(grid_100_precip, "../../output/data/precip100.rds")
 saveRDS(grid_200_precip, "../../output/data/precip200.rds")
 
 message("Finished pre-processing all data, ready for model preperations...")
+
+# Create a summary figure showing the occurrence data, type of data, and climate change
+# FIGURE ONE
+temp_70s <- calc(subset(temp, subset=grep(paste(c(1970, 1971, 1972, 1973, 1974,
+                                               1975, 1976, 1977, 1978, 1979), collapse="|"),
+                                         names(temp), value=TRUE)),
+                fun=mean)
+temp_10s <- calc(subset(temp, subset=grep(paste(c(2010, 2011, 2012, 2013, 2014,
+                                        2015, 2016, 2017, 2018, 2019), collapse="|"),
+                                names(temp), value=TRUE)),
+       fun=mean)
+
+temp_dx <- temp_10s - temp_70s
+temp_dx <- raster::mask(temp_dx, sf::as_Spatial(basemap))
+temp_dx <- as(temp_dx, "SpatialPixelsDataFrame")
+temp_dx <- as.data.frame(temp_dx)
+colnames(temp_dx) <- c("value", "x", "y")
+
+occ_sf_plot <- occ_sf %>%
+  dplyr::slice_sample(n=5000) %>%
+  sf::st_intersection(basemap)
+
+occ_sum <- occ_sf %>%
+  dplyr::group_by(year, basisOfRecord) %>%
+  dplyr::mutate(freq=n()) %>%
+  dplyr::ungroup() %>%
+  dplyr::select(year, basisOfRecord, freq) %>%
+  sf::st_drop_geometry() %>%
+  unique()
+
+FIGURE_ONE_A <- ggplot()+
+  geom_tile(temp_dx,
+          mapping=aes(x=x, y=y, fill=value))+
+  colorspace::scale_fill_continuous_diverging(palette="Blue-Red",
+                                              name="Change in\nAverage Annual\nMin. Temp [C]",
+                                              guide=guide_colorbar(title.position="top"),
+                                              limits=c(-3,4))+
+  geom_sf(basemap,
+          mapping=aes(),
+          fill=NA)+
+  theme_map()+
+  theme(legend.position=c(0.05, 0.3),
+        legend.direction="horizontal")
+
+FIGURE_ONE_B <- ggplot()+
+  geom_sf(dplyr::slice_sample(occ_sf_plot, n=5000),
+          mapping=aes(color=basisOfRecord))+
+  colorspace::scale_color_discrete_qualitative(name="Type of Record")+
+  geom_sf(basemap,
+          mapping=aes(),
+          fill=NA)+
+  theme_map()+
+  theme(legend.position=c(0.00, 0.3),
+        legend.direction="vertical")
+
+FIGURE_ONE_C <- ggplot()+
+  geom_point(occ_sum,
+             mapping=aes(x=year, y=freq, color=basisOfRecord))+
+  geom_line(occ_sum,
+            mapping=aes(x=year, y=freq, color=basisOfRecord))+
+  colorspace::scale_color_discrete_qualitative(name="Type of Record")+
+  scale_x_continuous(limits=c(1970,2019))+
+  scale_y_log10(limits=c(10,15000))+
+  labs(x="Year of Collection/Observation",
+       y="Number of\nOccurrences (log10)")+
+  theme_cowplot()+
+  theme(legend.position="none")
+
+FIGURE_ONE_TOP <- cowplot::plot_grid(FIGURE_ONE_A, FIGURE_ONE_B,
+                   ncol=2, labels=c("(a)", "(b)"))
+FIGURE_ONE <- cowplot::plot_grid(FIGURE_ONE_TOP,
+                                 FIGURE_ONE_C,
+                                 nrow=2, labels=c("", "(c)"))+
+  theme(plot.background=element_rect(fill="white", color="white"))
+ggsave2("../../figures/main/FIGURE_001.png", FIGURE_ONE, dpi=400, height=6, width=12)
+
+
+
+
