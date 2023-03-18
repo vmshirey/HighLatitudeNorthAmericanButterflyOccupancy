@@ -13,8 +13,14 @@ run.R2jags.model <- function(dd,
                    "psi.sp",  "sigma.psi.sp", "psi.site", "sigma.psi.site", 
                    "sigma.psi.sp.temp", "sigma.psi.sp.temp2", "sigma.psi.sp.precip",
                    "psi.beta.temp", "psi.beta.temp2", "psi.beta.precip", "psi.area")
-  } else{
+  } else if(precip==TRUE){
     model.file = "model_intercept_precip.txt"
+    my.params <- c("mu.p.0", "p.yr", "sigma.p.sp", "sigma.p.site", "mu.psi.0",
+                   "psi.sp",  "sigma.psi.sp", "psi.site", "sigma.psi.site", 
+                   "sigma.psi.sp.temp", "sigma.psi.sp.temp2", "sigma.psi.sp.precip",
+                   "psi.beta.temp", "psi.beta.temp2", "psi.beta.precip", "psi.area")
+  } else{
+    model.file = "model_intercept_all.txt"
     my.params <- c("mu.p.0", "p.yr", "sigma.p.sp", "sigma.p.site", "mu.psi.0",
                    "psi.sp",  "sigma.psi.sp", "psi.site", "sigma.psi.site", 
                    "sigma.psi.sp.temp", "sigma.psi.sp.temp2", "sigma.psi.sp.precip",
