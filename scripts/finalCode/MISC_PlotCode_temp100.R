@@ -146,17 +146,22 @@ plot_response_curves <- function(sims.mat, modelData, sp_traits){
   y_vals_warm <- lapply(x_temp, getYVal_temp_warm, sims.mat)
   y_vals_warm <- do.call(rbind, y_vals_warm) %>% as.data.frame()
   
-  # Calculate the overall butterfly response again, but keep the chains intact
-  getYVal_temp_com_chains <- function(dd, sims.mat){
+  # Calculate the overall warm-adapted butterfly response to average minimum temperature
+  # for the warmest quarter of species
+  mid_indices <- which(sp_traits$rangeTemp >= quantile(sp_traits$rangeTemp, probs=0.25) &
+                         sp_traits$rangeTemp <= quantile(sp_traits$rangeTemp, probs=0.75))
+  getYVal_temp_mid <- function(dd, sims.mat){
     chains <- plogis(sims.mat[,"mu.psi.0"]+
-                       rowMeans(sims.mat[,grepl("psi.sp", colnames(sims.mat))])+
-                       rowMeans(sims.mat[,grepl("psi.beta.temp\\[", perl=TRUE, colnames(sims.mat))])*dd+
-                       rowMeans(sims.mat[,grepl("psi.beta.temp2", colnames(sims.mat))])*dd)
+                       rowMeans(sims.mat[,grepl("psi.sp", colnames(sims.mat))][,mid_indices])+
+                       rowMeans(sims.mat[,grepl("psi.beta.temp\\[", perl=TRUE, colnames(sims.mat))][,mid_indices])*dd+
+                       rowMeans(sims.mat[,grepl("psi.beta.temp2", colnames(sims.mat))][,mid_indices])*(dd*dd))
     
-    return(data.frame(dd, chains))
+    y_vals <- c(mean=mean(chains), quantile(chains, probs=c(0.05,0.95)))
+    names(y_vals) <- c("mean", "lower", "upper")
+    return(y_vals)
   } 
-  y_vals_com_chains <- lapply(x_temp, getYVal_temp_com_chains, sims.mat)
-  y_vals_com_chains <- do.call(rbind, y_vals_com_chains) %>% as.data.frame()
+  y_vals_mid <- lapply(x_temp, getYVal_temp_mid, sims.mat)
+  y_vals_mid <- do.call(rbind, y_vals_mid) %>% as.data.frame()
 
   # Calculate the species-specific responses to average minimum temperature.
   # Grab the minimum and maximum temperature experienced by the species within
@@ -198,13 +203,6 @@ plot_response_curves <- function(sims.mat, modelData, sp_traits){
               mapping=aes(x=x, y=mean, 
                           group=spp),
               alpha=0.1)+
-    # OVERALL AVERAGE RESPONSE FROM ALL BUTTERFLIES
-    geom_line(y_vals_com,
-              mapping=aes(x=x_temp, y=mean),
-              size=1)+
-    geom_ribbon(y_vals_com,
-                mapping=aes(x=x_temp, ymin=lower, ymax=upper),
-                alpha=0.4)+
     # COLD-ADAPTED SPECIES RESPONSES
     geom_line(y_vals_cold,
               mapping=aes(x=x_temp, y=mean),
@@ -219,18 +217,25 @@ plot_response_curves <- function(sims.mat, modelData, sp_traits){
     geom_ribbon(y_vals_warm,
                 mapping=aes(x=x_temp, ymin=lower, ymax=upper),
                 alpha=0.4, color=NA, fill="firebrick1")+
+    # OVERALL AVERAGE RESPONSE FROM ALL BUTTERFLIES
+    geom_line(y_vals_mid,
+              mapping=aes(x=x_temp, y=mean),
+              size=1)+
+    geom_ribbon(y_vals_mid,
+                mapping=aes(x=x_temp, ymin=lower, ymax=upper),
+                alpha=0.4)+
     scale_y_continuous(limits=c(0,1), labels=scales::percent)+
     scale_x_continuous(limits=c(-3,2), breaks=c(-3, -2, -1, 0, 1, 2),
                        labels=round((c(-3, -2, -1, 0, 1, 2)*sd(my_data_100_1$master.data$temp))+
                                       mean(my_data_100_1$master.data$temp)))+
-    labs(x="Average Minimum Temperature [C]",
+    labs(x="Average Minimum Temperature [°C]",
          y="Occupancy Probability")+
     theme_cowplot()+
     theme(plot.background=element_rect(color=NULL, fill="white"),
           axis.title=element_text(size=18),
           axis.text=element_text(size=16),
           legend.position="none")
-  ggsave2("../../figures/supplemental/temp_responseCurve_100.png", dpi=400, height=8, width=8)
+  ggsave2("../../figures/main/FIGURE_002.png", dpi=400, height=6, width=6)
   return(response_curves)
   
 }
