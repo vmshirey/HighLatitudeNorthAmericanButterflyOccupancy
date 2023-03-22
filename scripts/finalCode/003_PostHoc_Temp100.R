@@ -674,8 +674,6 @@ MODEL_G_DRAWS <- tidybayes::gather_draws(MODEL_G,
   dplyr::mutate(.variable=factor(.variable, levels=c("aveWingspan_z",
                                                      "Intercept")))
 
-conditional_effects(MODEL_O)
-
 # FIGURE FOUR ########################################
 MODEL_C_LINES <- total_dx_df_model %>%
   modelr::data_grid(rangeTemp_z=seq(-3, 2, length.out=50)) %>%

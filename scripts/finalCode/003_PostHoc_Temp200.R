@@ -611,7 +611,7 @@ MODEL_N <- brms::brm(mean~1+
                      family=gaussian(),
                      prior=c(prior(normal(0,10), "Intercept")),
                      control=list(max_treedepth=15,
-                                  adapt_delta=0.99999),
+                                  adapt_delta=0.999999),
                      cores=5,
                      save_pars = save_pars(all = TRUE))
 saveRDS(MODEL_N, "../../output/modelFiles/200kmTemp_ModelN.rds")
@@ -619,212 +619,54 @@ saveRDS(MODEL_N, "../../output/modelFiles/200kmTemp_ModelN.rds")
 ####################################################################################################
 ## COMPARE ALL OF THE MODELS TO ONE ANOTHER AND VISUALIZE
 ####################################################################################################
-my_fit_1_list <- readRDS("../../output/posthoc_200km_fit1.rds")
-my_fit_2_list <- readRDS("../../output/posthoc_200km_fit2.rds")
-my_fit_3_list <- readRDS("../../output/posthoc_200km_fit3.rds")
-my_fit_4_list <- readRDS("../../output/posthoc_200km_fit4.rds")
-my_fit_5_list <- readRDS("../../output/posthoc_200km_fit5.rds")
-my_fit_6_list <- readRDS("../../output/posthoc_200km_fit6.rds")
-my_fit_7_list <- readRDS("../../output/posthoc_200km_fit7.rds")
-my_fit_8_list <- readRDS("../../output/posthoc_200km_fit8.rds")
 
-loo::loo_compare(loo::loo(my_fit_1_core, moment_match=TRUE, reloo=TRUE), 
-                 loo::loo(my_fit_2_core, moment_match=TRUE, reloo=TRUE), 
-                 loo::loo(my_fit_3_core, moment_match=TRUE, reloo=TRUE), 
-                 loo::loo(my_fit_4_core, moment_match=TRUE, reloo=TRUE),
-                 loo::loo(my_fit_5_core, moment_match=TRUE, reloo=TRUE),
-                 loo::loo(my_fit_6_core, moment_match=TRUE, reloo=TRUE),
-                 loo::loo(my_fit_7_core, moment_match=TRUE, reloo=TRUE),
-                 loo::loo(my_fit_8_core, moment_match=TRUE, reloo=TRUE))
+loo::loo_compare(loo::loo(MODEL_A, moment_match=TRUE),
+                 loo::loo(MODEL_B, moment_match=TRUE),
+                 loo::loo(MODEL_C, moment_match=TRUE),
+                 loo::loo(MODEL_D, moment_match=TRUE),
+                 loo::loo(MODEL_E, moment_match=TRUE),
+                 loo::loo(MODEL_F, moment_match=TRUE),
+                 loo::loo(MODEL_G, moment_match=TRUE),
+                 loo::loo(MODEL_H, moment_match=TRUE),
+                 loo::loo(MODEL_I, moment_match=TRUE),
+                 loo::loo(MODEL_J, moment_match=TRUE),
+                 loo::loo(MODEL_K, moment_match=TRUE),
+                 loo::loo(MODEL_L, moment_match=TRUE),
+                 loo::loo(MODEL_M, moment_match=TRUE),
+                 loo::loo(MODEL_N, moment_match=TRUE))
 
-loo::loo_compare(loo::loo(my_fit_1_north, moment_match=TRUE, reloo=TRUE), 
-                 loo::loo(my_fit_2_north, moment_match=TRUE, reloo=TRUE), 
-                 loo::loo(my_fit_3_north, moment_match=TRUE, reloo=TRUE), 
-                 loo::loo(my_fit_4_north, moment_match=TRUE, reloo=TRUE),
-                 loo::loo(my_fit_5_north, moment_match=TRUE, reloo=TRUE),
-                 loo::loo(my_fit_6_north, moment_match=TRUE, reloo=TRUE),
-                 loo::loo(my_fit_7_north, moment_match=TRUE, reloo=TRUE),
-                 loo::loo(my_fit_8_north, moment_match=TRUE, reloo=TRUE))
-
-loo::loo_compare(loo::loo(my_fit_1_south, moment_match=TRUE, reloo=TRUE), 
-                 loo::loo(my_fit_2_south, moment_match=TRUE, reloo=TRUE), 
-                 loo::loo(my_fit_3_south, moment_match=TRUE, reloo=TRUE), 
-                 loo::loo(my_fit_4_south, moment_match=TRUE, reloo=TRUE),
-                 loo::loo(my_fit_5_south, moment_match=TRUE, reloo=TRUE),
-                 loo::loo(my_fit_6_south, moment_match=TRUE, reloo=TRUE),
-                 loo::loo(my_fit_7_south, moment_match=TRUE, reloo=TRUE),
-                 loo::loo(my_fit_8_south, moment_match=TRUE, reloo=TRUE))
-
-# Grab the draws from the top candidate models
-sp_traits <- sp_traits %>%
-  dplyr::select(family, species) %>%
-  arrange(family) %>%
-  group_by(family) %>%
-  arrange(species, .by_group=TRUE) %>%
-  ungroup() %>%
-  dplyr::mutate(globalOrdering=row_number())
-
-
-# Pull the trait parameter estimates
-my_draws_4_south <- tidybayes::gather_draws(my_fit_4_south,
-                                            b_Intercept, b_rangeTemp_z, regex=TRUE) %>%
+# GRAB DRAWS
+MODEL_C_DRAWS <- tidybayes::gather_draws(MODEL_C,
+                                         b_Intercept, 
+                                         b_rangeTemp_z, regex=TRUE)  %>%
   dplyr::mutate(.variable=str_replace(.variable, "b_", "")) %>%
   dplyr::mutate(.variable=factor(.variable, levels=c("rangeTemp_z",
                                                      "Intercept")))
 
-my_draws_4_core <- tidybayes::gather_draws(my_fit_4_core,
-                                           b_Intercept, b_rangeTemp_z, regex=TRUE)  %>%
-  dplyr::mutate(.variable=str_replace(.variable, "b_", "")) %>%
-  dplyr::mutate(.variable=factor(.variable, levels=c("rangeTemp_z",
-                                                     "Intercept")))
+MODEL_C_LINES <- total_dx_df_model %>%
+  modelr::data_grid(rangeTemp_z=seq(-3, 2, length.out=50)) %>%
+  tidybayes::add_predicted_draws(MODEL_C)
 
-my_draws_4_north <- tidybayes::gather_draws(my_fit_4_north,
-                                            b_Intercept, b_rangeTemp_z, regex=TRUE)  %>%
-  dplyr::mutate(.variable=str_replace(.variable, "b_", "")) %>%
-  dplyr::mutate(.variable=factor(.variable, levels=c("rangeTemp_z",
-                                                     "Intercept")))
-
-# FIGURE FOUR ########################################
-ggplot()+
-  tidybayes::stat_interval(my_draws_4_north,
-                           mapping=aes(x=.value, y=.variable),
-                           position=position_nudge(y=+0.2))+
-  scale_color_brewer(palette="Purples", name="Cred. Int.")+
-  ggnewscale::new_scale_color()+
-  tidybayes::stat_interval(my_draws_4_core,
-                           mapping=aes(x=.value, y=.variable))+
-  scale_color_brewer(palette="Greys", name="Cred. Int.")+
-  ggnewscale::new_scale_color()+
-  tidybayes::stat_interval(my_draws_4_south,
-                           mapping=aes(x=.value, y=.variable),
-                           position=position_nudge(y=-0.2))+
-  scale_color_brewer(palette="Purples", name="Cred. Int.")+
-  geom_vline(xintercept=0, linetype=2)+
-  labs(x="Parameter Estimate", y="Parameter")+
-  scale_y_discrete(labels=c("Range-wide\nTemp.", "Intercept"))+
+ggplot(MODEL_C_LINES,
+       mapping=aes(x=rangeTemp_z, y=mean))+
+  tidybayes::stat_lineribbon(mapping=aes(y=.prediction),
+                             .width=c(0.95, 0.8, 0.5))+
+  scale_fill_brewer(palette="Greens", name="Credible Interval")+
+  geom_point(data=total_dx_df_model,
+             mapping=aes(x=rangeTemp_z, y=mean),
+             size=2)+
+  geom_hline(yintercept=0, linetype=2)+
+  scale_y_continuous(labels=scales::percent_format(),
+                     name="Mean Occupancy Shift from\nthe 1970s to 2010s",
+                     limits=c(-0.12, 0.12))+
+  scale_x_continuous(name="Range-wide Average Annual Temperature [°C]",
+                     limits=c(-3,2),
+                     breaks=seq(-3,2,1),
+                     labels=round((seq(-3,2,1)*sd(sp_traits$rangeTemp))+
+                                    mean(sp_traits$rangeTemp)), 1)+
   theme_cowplot()+
-  theme(plot.background=element_rect(fill="white", color="white"),
-        axis.text.y=element_text(angle=90, hjust=0.5),
-        legend.position="top")
-ggsave2("../../figures/supplemental/FIGURE_004_temp200.png", dpi=400, height=3, width=6)
+  theme(plot.background=element_rect(fill="white",
+                                     color="white"),
+        legend.position=c(0.1, 0.85))
 
-# Model 8 Draws Figure (Supplemental)
-my_draws_8_south <- tidybayes::gather_draws(my_fit_8_south,
-                                            b_Intercept, b_rangeTemp_z, 
-                                            b_rangeSize_z, b_aveWingspan_z,
-                                            b_numReportedHostplantFamilies_z,
-                                            b_diapauseStage_zEgg,
-                                            b_diapauseStage_zPupa,
-                                            b_diapauseStage_zAdult,
-                                            b_disturbanceAffinity_zAvoidant,
-                                            b_disturbanceAffinity_zAssociated,
-                                            regex=TRUE) %>%
-  dplyr::mutate(.variable=str_replace(.variable, "b_", "")) %>%
-  dplyr::mutate(.variable=factor(.variable, levels=c(
-    "disturbanceAffinity_zAssociated",
-    "disturbanceAffinity_zAvoidant",
-    "diapauseStage_zEgg",
-    "diapauseStage_zPupa",
-    "diapauseStage_zAdult",
-    "numReportedHostplantFamilies_z",
-    "aveWingspan_z",
-    "rangeTemp_z",
-    "rangeSize_z",
-    "Intercept")))
-
-my_draws_8_core <- tidybayes::gather_draws(my_fit_8_core,
-                                           b_Intercept, b_rangeTemp_z, 
-                                           b_rangeSize_z, b_aveWingspan_z,
-                                           b_numReportedHostplantFamilies_z,
-                                           b_diapauseStage_zEgg,
-                                           b_diapauseStage_zPupa,
-                                           b_diapauseStage_zAdult,
-                                           b_disturbanceAffinity_zAvoidant,
-                                           b_disturbanceAffinity_zAssociated,
-                                           regex=TRUE) %>%
-  dplyr::mutate(.variable=str_replace(.variable, "b_", "")) %>%
-  dplyr::mutate(.variable=factor(.variable, levels=c(
-    "disturbanceAffinity_zAssociated",
-    "disturbanceAffinity_zAvoidant",
-    "diapauseStage_zEgg",
-    "diapauseStage_zPupa",
-    "diapauseStage_zAdult",
-    "numReportedHostplantFamilies_z",
-    "aveWingspan_z",
-    "rangeTemp_z",
-    "rangeSize_z",
-    "Intercept")))
-
-my_draws_8_north <- tidybayes::gather_draws(my_fit_8_north,
-                                            b_Intercept, b_rangeTemp_z, 
-                                            b_rangeSize_z, b_aveWingspan_z,
-                                            b_numReportedHostplantFamilies_z,
-                                            b_diapauseStage_zEgg,
-                                            b_diapauseStage_zPupa,
-                                            b_diapauseStage_zAdult,
-                                            b_disturbanceAffinity_zAvoidant,
-                                            b_disturbanceAffinity_zAssociated,
-                                            regex=TRUE) %>%
-  dplyr::mutate(.variable=str_replace(.variable, "b_", "")) %>%
-  dplyr::mutate(.variable=factor(.variable, levels=c(
-    "disturbanceAffinity_zAssociated",
-    "disturbanceAffinity_zAvoidant",
-    "diapauseStage_zEgg",
-    "diapauseStage_zPupa",
-    "diapauseStage_zAdult",
-    "numReportedHostplantFamilies_z",
-    "aveWingspan_z",
-    "rangeTemp_z",
-    "rangeSize_z",
-    "Intercept")))
-
-ggplot()+
-  tidybayes::stat_interval(my_draws_8_north,
-                           mapping=aes(x=.value, y=.variable),
-                           position=position_nudge(y=+0.2))+
-  scale_color_brewer(palette="Purples", name="Cred. Int.")+
-  ggnewscale::new_scale_color()+
-  tidybayes::stat_interval(my_draws_8_core,
-                           mapping=aes(x=.value, y=.variable))+
-  scale_color_brewer(palette="Greys", name="Cred. Int.")+
-  ggnewscale::new_scale_color()+
-  tidybayes::stat_interval(my_draws_8_south,
-                           mapping=aes(x=.value, y=.variable),
-                           position=position_nudge(y=-0.2))+
-  scale_color_brewer(palette="Purples", name="Cred. Int.")+
-  geom_vline(xintercept=0, linetype=2)+
-  labs(x="Parameter Estimate", y="Parameter")+
-  scale_y_discrete(labels=c("Disturbance Associated",
-    "Disturbance Avoidant",
-    "Egg Overwinterers",
-    "Pupal Overwinterers",
-    "Adult Overwinterers",
-    "Num. Hostplant Families",
-    "Average Wingspan",
-    "Range-wide\nTemp.",
-    "Range Size.", "Intercept"))+
-  theme_cowplot()+
-  theme(plot.background=element_rect(fill="white", color="white"),
-        axis.text.y=element_text(angle=0, hjust=1),
-        legend.position="top")
-ggsave2("../../figures/supplemental/FIGURE_004_fit8_temp200.png", dpi=400, height=7, width=6)
-
-
-hyp <- "sd_species__Intercept^2 / (sd_species__Intercept^2 + sigma^2) = 0"
-(hyp <- brms::hypothesis(my_fit_4_core, hyp, class = NULL))
-
-hyp <- "sd_species__Intercept^2 / (sd_species__Intercept^2 + sigma^2) = 0"
-(hyp <- brms::hypothesis(my_fit_4_north, hyp, class = NULL))
-
-hyp <- "sd_species__Intercept^2 / (sd_species__Intercept^2 + sigma^2) = 0"
-(hyp <- brms::hypothesis(my_fit_4_south, hyp, class = NULL))
-
-
-hyp <- "sd_species__Intercept^2 / (sd_species__Intercept^2 + sigma^2) = 0"
-(hyp <- brms::hypothesis(my_fit_8_core, hyp, class = NULL))
-
-hyp <- "sd_species__Intercept^2 / (sd_species__Intercept^2 + sigma^2) = 0"
-(hyp <- brms::hypothesis(my_fit_8_north, hyp, class = NULL))
-
-hyp <- "sd_species__Intercept^2 / (sd_species__Intercept^2 + sigma^2) = 0"
-(hyp <- brms::hypothesis(my_fit_8_south, hyp, class = NULL))
+ggsave2("../../figures/supplemental/FIGURE_004_200temp.png", dpi=400, height=5, width=10)
