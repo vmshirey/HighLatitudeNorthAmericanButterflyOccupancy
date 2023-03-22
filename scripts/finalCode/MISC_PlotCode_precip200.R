@@ -143,16 +143,21 @@ plot_response_curves <- function(sims.mat, modelData, sp_traits){
   y_vals_warm <- lapply(x_temp, getYVal_temp_warm, sims.mat)
   y_vals_warm <- do.call(rbind, y_vals_warm) %>% as.data.frame()
   
-  # Calculate the overall butterfly response again, but keep the chains intact
-  getYVal_temp_com_chains <- function(dd, sims.mat){
+  # Calculate the overall warm-adapted butterfly response to average minimum temperature
+  # for the warmest quarter of species
+  mid_indices <- which(sp_traits$rangePrecip >= quantile(sp_traits$rangePrecip, probs=0.25) &
+                         sp_traits$rangePrecip <= quantile(sp_traits$rangePrecip, probs=0.75))
+  getYVal_temp_mid <- function(dd, sims.mat){
     chains <- plogis(sims.mat[,"mu.psi.0"]+
-                       rowMeans(sims.mat[,grepl("psi.sp", colnames(sims.mat))])+
-                       rowMeans(sims.mat[,grepl("psi.beta.precip", colnames(sims.mat))])*dd)
+                       rowMeans(sims.mat[,grepl("psi.sp", colnames(sims.mat))][,mid_indices])+
+                       rowMeans(sims.mat[,grepl("psi.beta.precip", colnames(sims.mat))][,warm_indices])*dd)
     
-    return(data.frame(dd, chains))
+    y_vals <- c(mean=mean(chains), quantile(chains, probs=c(0.05,0.95)))
+    names(y_vals) <- c("mean", "lower", "upper")
+    return(y_vals)
   } 
-  y_vals_com_chains <- lapply(x_temp, getYVal_temp_com_chains, sims.mat)
-  y_vals_com_chains <- do.call(rbind, y_vals_com_chains) %>% as.data.frame()
+  y_vals_mid <- lapply(x_temp, getYVal_temp_mid, sims.mat)
+  y_vals_mid <- do.call(rbind, y_vals_mid) %>% as.data.frame()
   
   # Calculate the species-specific responses to average minimum temperature.
   # Grab the minimum and maximum temperature experienced by the species within
@@ -193,13 +198,6 @@ plot_response_curves <- function(sims.mat, modelData, sp_traits){
               mapping=aes(x=x, y=mean, 
                           group=spp),
               alpha=0.1)+
-    # OVERALL AVERAGE RESPONSE FROM ALL BUTTERFLIES
-    geom_line(y_vals_com,
-              mapping=aes(x=x_temp, y=mean),
-              size=1)+
-    geom_ribbon(y_vals_com,
-                mapping=aes(x=x_temp, ymin=lower, ymax=upper),
-                alpha=0.4)+
     # COLD-ADAPTED SPECIES RESPONSES
     geom_line(y_vals_cold,
               mapping=aes(x=x_temp, y=mean),
@@ -214,6 +212,13 @@ plot_response_curves <- function(sims.mat, modelData, sp_traits){
     geom_ribbon(y_vals_warm,
                 mapping=aes(x=x_temp, ymin=lower, ymax=upper),
                 alpha=0.4, color=NA, fill="#2887a1")+
+    # MID RESPONSE
+    geom_line(y_vals_com,
+              mapping=aes(x=x_temp, y=mean),
+              size=1)+
+    geom_ribbon(y_vals_com,
+                mapping=aes(x=x_temp, ymin=lower, ymax=upper),
+                alpha=0.4)+
     scale_y_continuous(limits=c(0,1), labels=scales::percent)+
     scale_x_continuous(limits=c(-1.223907,6), breaks=c(-1.223907, 0, 2, 4, 6),
                        labels=round((c(-1.223907, 0, 2, 4, 6)*sd(my_data_200_1$master.data$precip, na.rm=TRUE))+

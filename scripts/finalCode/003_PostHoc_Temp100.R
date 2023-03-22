@@ -621,6 +621,22 @@ MODEL_N <- brms::brm(mean~1+
                      save_pars = save_pars(all = TRUE))
 saveRDS(MODEL_N, "../../output/modelFiles/100kmTemp_ModelN.rds")
 
+# TEMPERATURE BY WINGSPAN MODEL (MODEL O)
+MODEL_O <- brms::brm(mean~1+
+                       rangeTemp_z+
+                       aveWingspan_z+
+                       rangeTemp_z:aveWingspan_z,
+                     data=total_dx_df_model,
+                     iter=200000,
+                     warmup=100000,
+                     thin=50,
+                     family=gaussian(),
+                     prior=c(prior(normal(0,10), "Intercept")),
+                     control=list(max_treedepth=15,
+                                  adapt_delta=0.9999),
+                     cores=5,
+                     save_pars = save_pars(all = TRUE))
+
 ####################################################################################################
 ## COMPARE ALL OF THE MODELS TO ONE ANOTHER AND VISUALIZE
 ####################################################################################################
@@ -638,7 +654,8 @@ loo::loo_compare(loo::loo(MODEL_A, moment_match=TRUE),
                  loo::loo(MODEL_K, moment_match=TRUE),
                  loo::loo(MODEL_L, moment_match=TRUE),
                  loo::loo(MODEL_M, moment_match=TRUE),
-                 loo::loo(MODEL_N, moment_match=TRUE))
+                 loo::loo(MODEL_N, moment_match=TRUE),
+                 loo::loo(MODEL_O, moment_match=TRUE))
 
 
 
@@ -656,6 +673,8 @@ MODEL_G_DRAWS <- tidybayes::gather_draws(MODEL_G,
   dplyr::mutate(.variable=str_replace(.variable, "b_", "")) %>%
   dplyr::mutate(.variable=factor(.variable, levels=c("aveWingspan_z",
                                                      "Intercept")))
+
+conditional_effects(MODEL_O)
 
 # FIGURE FOUR ########################################
 MODEL_C_LINES <- total_dx_df_model %>%
@@ -716,7 +735,11 @@ ggsave2("../../figures/main/FIGURE_004.png", dpi=400, height=5, width=10)
 
 # Pagel's Lambda Estimates
 hyp <- "sd_species__Intercept^2 / (sd_species__Intercept^2 + sigma^2) = 0"
-(hyp <- brms::hypothesis(my_fit_4_total, hyp, class = NULL))
+(hyp <- brms::hypothesis(MODEL_D, hyp, class = NULL))
+
+hyp <- "sd_species__Intercept^2 / (sd_species__Intercept^2 + sigma^2) = 0"
+(hyp <- brms::hypothesis(MODEL_H, hyp, class = NULL))
+
 
 # Other Phylogenetic Tests (outside of the BRMS model)
 sp_tree <- ape::read.tree("../../data/taxa/SupDryad_treepl.tre")

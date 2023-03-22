@@ -28,7 +28,7 @@ my_grid_200 <- readRDS("../../output/data/grid_200.rds") %>%
 
 # Load in the 100x100 km temperature model results
 my_res_200_1 <- readRDS("my_res_200_1_precip.RDS")
-MCMCvis::MCMCtrace(my_res_200_1, Rhat=TRUE, filename="../../figures/supplemental/SupplementalFile_S4.pdf")
+# MCMCvis::MCMCtrace(my_res_200_1, Rhat=TRUE, filename="../../figures/supplemental/SupplementalFile_S4.pdf")
 my_sum_200_1 <- MCMCvis::MCMCsummary(my_res_200_1)
 my_sim_mat_200_1 <- as.matrix(my_res_200_1)
 
@@ -126,19 +126,19 @@ for(i in 1:length(raster_occ_dx)){
   }
   
   # Create the occupancy shift map and save to a .pdf file
-  my_occ_dx_map <- ggplot()+
-    geom_sf(basemap, mapping=aes(), fill=NA)+
-    geom_tile(my_rast_sf, mapping=aes(x=x, y=y, fill=layer),
-              alpha=0.7)+
-    colorspace::scale_fill_continuous_divergingx(palette="Zissou 1", rev=TRUE,
-                                                 na.value=NA, labels=scales::percent,
-                                                 name="Shift in 50-year\nOccupancy Probability")+
-    ggtitle(sp_traits[i,]$species)+
-    theme_map()+
-    theme(legend.position=c(0.05, 0.3),
-          plot.title=element_text(face="italic"))
-  ggsave2(paste0("../../figures/supplemental/rangeMaps/", sp_traits[i,]$binomial, "_200precip.pdf"),
-          dpi=400, height=6, width=8)
+  # my_occ_dx_map <- ggplot()+
+  #   geom_sf(basemap, mapping=aes(), fill=NA)+
+  #   geom_tile(my_rast_sf, mapping=aes(x=x, y=y, fill=layer),
+  #             alpha=0.7)+
+  #   colorspace::scale_fill_continuous_divergingx(palette="Zissou 1", rev=TRUE,
+  #                                                na.value=NA, labels=scales::percent,
+  #                                                name="Shift in 50-year\nOccupancy Probability")+
+  #   ggtitle(sp_traits[i,]$species)+
+  #   theme_map()+
+  #   theme(legend.position=c(0.05, 0.3),
+  #         plot.title=element_text(face="italic"))
+  # ggsave2(paste0("../../figures/supplemental/rangeMaps/", sp_traits[i,]$binomial, "_200precip.pdf"),
+  #         dpi=400, height=6, width=8)
 }
 core_dx_df <- do.call(rbind, core_dx) %>% as.data.frame() %>%
   dplyr::arrange(mean) %>%
@@ -146,7 +146,12 @@ core_dx_df <- do.call(rbind, core_dx) %>% as.data.frame() %>%
                 geo="core") %>%
   dplyr::left_join(sp_traits, by="SPID") %>%
   dplyr::mutate(code=stringr::str_to_upper(paste0(substr(species, 1, 3),
-                                                  substr(word(species, 2), 1, 3))))
+                                                  substr(word(species, 2), 1, 3)))) %>%
+  dplyr::mutate(rangePrecipBin=ifelse(rangePrecip <= quantile(.$rangePrecip, probs=0.25),
+                                      "Driest",
+                                      ifelse(rangePrecip >= quantile(.$rangePrecip, probs=0.75),
+                                             "Wettest", "Average"))) %>%
+  dplyr::mutate(rangePrecipBin=factor(rangePrecipBin, levels=c("Driest", "Average", "Wettest")))
 write.csv(core_dx_df, "../../output/trends/core_dx_df_precip200.csv")
 
 northern_dx_df <- do.call(rbind, northern_dx) %>% as.data.frame()
@@ -155,7 +160,12 @@ northern_dx_df <- northern_dx_df[match(core_dx_df$SPID, northern_dx_df$SPID),] %
                 geo="north") %>%
   dplyr::left_join(sp_traits, by="SPID") %>%
   dplyr::mutate(code=stringr::str_to_upper(paste0(substr(species, 1, 3),
-                                                  substr(word(species, 2), 1, 3))))
+                                                  substr(word(species, 2), 1, 3)))) %>%
+  dplyr::mutate(rangePrecipBin=ifelse(rangePrecip <= quantile(.$rangePrecip, probs=0.25),
+                                      "Driest",
+                                      ifelse(rangePrecip >= quantile(.$rangePrecip, probs=0.75),
+                                             "Wettest", "Average"))) %>%
+  dplyr::mutate(rangePrecipBin=factor(rangePrecipBin, levels=c("Driest", "Average", "Wettest")))
 write.csv(northern_dx_df, "../../output/trends/northern_dx_df_precip200.csv")
 
 southern_dx_df <- do.call(rbind, southern_dx) %>% as.data.frame()
@@ -164,7 +174,12 @@ southern_dx_df <- southern_dx_df[match(core_dx_df$SPID, southern_dx_df$SPID),] %
                 geo="south") %>%
   dplyr::left_join(sp_traits, by="SPID") %>%
   dplyr::mutate(code=stringr::str_to_upper(paste0(substr(species, 1, 3),
-                                                  substr(word(species, 2), 1, 3))))
+                                                  substr(word(species, 2), 1, 3)))) %>%
+  dplyr::mutate(rangePrecipBin=ifelse(rangePrecip <= quantile(.$rangePrecip, probs=0.25),
+                                      "Driest",
+                                      ifelse(rangePrecip >= quantile(.$rangePrecip, probs=0.75),
+                                             "Wettest", "Average"))) %>%
+  dplyr::mutate(rangePrecipBin=factor(rangePrecipBin, levels=c("Driest", "Average", "Wettest")))
 write.csv(southern_dx_df, "../../output/trends/southern_dx_df_precip200.csv")
 
 total_dx_df <- do.call(rbind, total_dx) %>% as.data.frame()
@@ -173,9 +188,13 @@ total_dx_df <- total_dx_df[match(core_dx_df$SPID, total_dx_df$SPID),] %>%
                 geo="south") %>%
   dplyr::left_join(sp_traits, by="SPID") %>%
   dplyr::mutate(code=stringr::str_to_upper(paste0(substr(species, 1, 3),
-                                                  substr(word(species, 2), 1, 3))))
+                                                  substr(word(species, 2), 1, 3)))) %>%
+  dplyr::mutate(rangePrecipBin=ifelse(rangePrecip <= quantile(.$rangePrecip, probs=0.25),
+                                      "Driest",
+                                      ifelse(rangePrecip >= quantile(.$rangePrecip, probs=0.75),
+                                             "Wettest", "Average"))) %>%
+  dplyr::mutate(rangePrecipBin=factor(rangePrecipBin, levels=c("Driest", "Average", "Wettest")))
 write.csv(total_dx_df, "../../output/trends/total_dx_df_precip200.csv")
-
 beepr::beep()
 
 master_dx_df <- do.call(rbind, list(core_dx_df, northern_dx_df, southern_dx_df))
@@ -210,8 +229,8 @@ FIGURE_THREE_A <- ggplot()+
                               y=mean, 
                               ymax=mean+sd, 
                               ymin=mean-sd,
-                              fill=rangePrecip,
-                              color=rangePrecip,
+                              fill=rangePrecipBin,
+                              color=rangePrecipBin,
                               shape=as.factor(geo)),
                   alpha=0)+
   geom_pointrange(northern_dx_df,
@@ -219,8 +238,8 @@ FIGURE_THREE_A <- ggplot()+
                               y=mean, 
                               ymax=mean+sd, 
                               ymin=mean-sd,
-                              fill=rangePrecip,
-                              color=rangePrecip),
+                              fill=rangePrecipBin,
+                              color=rangePrecipBin),
                   shape=24, size=0.1,
                   position=position_nudge(x=0.25))+
   geom_pointrange(core_dx_df,
@@ -228,30 +247,26 @@ FIGURE_THREE_A <- ggplot()+
                               y=mean, 
                               ymax=mean+sd, 
                               ymin=mean-sd,
-                              fill=rangePrecip,
-                              color=rangePrecip),
+                              fill=rangePrecipBin,
+                              color=rangePrecipBin),
                   shape=21, size=0.1)+
   geom_pointrange(southern_dx_df,
                   mapping=aes(x=ordering, 
                               y=mean, 
                               ymax=mean+sd, 
                               ymin=mean-sd,
-                              fill=rangePrecip,
-                              color=rangePrecip),
+                              fill=rangePrecipBin,
+                              color=rangePrecipBin),
                   shape=25, size=0.1,
                   position=position_nudge(x=-0.25))+
   scale_shape_manual(values=c(21, 24, 25), name="Geographic Context", 
                      labels=c("Core", "Northern", "Southern"),
                      guide=guide_legend(title.position="top",
                                         override.aes=list(fill="black", alpha=1)))+
-  scale_fill_gradientn(colors=c("#644119", "#a16928", "grey45", "#2887a1", "#195464"),
-                       name="Ave. Range Precip. [mm]",
-                       guide=guide_colorbar(title.position="top",
-                                            barwidth=unit(5, "cm")),)+
-  scale_color_gradientn(colors=c("#644119", "#a16928", "grey45", "#2887a1", "#195464"),
-                       name="Ave. Range Precip. [mm]",
-                        guide=guide_colorbar(title.position="top",
-                                             barwidth=unit(5, "cm")))+
+  scale_color_manual(values=c("#644119", "black", "#195464"),
+                     name="Range Classification")+
+  scale_fill_manual(values=c("#644119", "black", "#195464"),
+                    name="Range Classification")+
   scale_x_continuous(breaks=seq(1, 90, 1), 
                      labels=core_dx_df$code,
                      expand=expansion(add=1),
@@ -283,51 +298,21 @@ ggsave2("../../figures/supplemental/FIGURE_2_precip200.png", FIGURE_THREE, dpi=4
 
 ## TRAIT-BASED ANALYSES ############################################################################
 # Scale the data and set reference levels for all categorical predictors
-core_dx_df <- master_dx_df %>%
-  dplyr::filter(geo=="core") %>%
+total_dx_df_model <- total_dx_df %>%
   dplyr::mutate(rangeSize_z = scale(rangeSize),
-                rangePrecip_z = scale(rangePrecip),
                 aveWingspan_z = scale(aveWingspan),
                 numReportedHostplantFamilies_z = scale(numReportedHostplantFamilies),
-                diapauseStage_z = factor(diapauseStage, levels=c("Larva", "Egg", "Pupa", "Adult")),
+                diapauseStage_z = factor(diapauseStage, levels=c("Egg", "Larva", "Pupa", "Adult"), order=TRUE),
                 disturbanceAffinity = ifelse(disturbanceAffinity=="Mixed", "Generalist", disturbanceAffinity)) %>%
   dplyr::mutate(disturbanceAffinity_z = factor(disturbanceAffinity, levels=c("Generalist", "Avoidant", "Associated")),
-                edgeAffinity_z = factor(edgeAffinity, levels=c("Geenralist", "Avoidant", "Associated")),
+                edgeAffinity_z = factor(edgeAffinity, levels=c("Genralist", "Avoidant", "Associated")),
                 canopyAffinity_z = factor(canopyAffinity, levels=c("Generalist", "Mixed", "Open")),
-                voltinism_z = factor(voltinism, levels=c("Univoltine", "Multivoltine"))) %>%
-  dplyr::select(species, mean, se, rangePrecip_z, rangeSize_z, aveWingspan_z, numReportedHostplantFamilies_z,
-                diapauseStage_z, disturbanceAffinity_z) %>%
-  dplyr::filter(complete.cases(.))
-
-northern_dx_df <- master_dx_df %>%
-  dplyr::filter(geo=="north") %>%
-  dplyr::mutate(rangeSize_z = scale(rangeSize),
-                rangePrecip_z = scale(rangePrecip),
-                aveWingspan_z = scale(aveWingspan),
-                numReportedHostplantFamilies_z = scale(numReportedHostplantFamilies),
-                diapauseStage_z = factor(diapauseStage, levels=c("Larva", "Egg", "Pupa", "Adult")),
-                disturbanceAffinity = ifelse(disturbanceAffinity=="Mixed", "Generalist", disturbanceAffinity)) %>%
-  dplyr::mutate(disturbanceAffinity_z = factor(disturbanceAffinity, levels=c("Generalist", "Avoidant", "Associated")),
-                edgeAffinity_z = factor(edgeAffinity, levels=c("Geenralist", "Avoidant", "Associated")),
-                canopyAffinity_z = factor(canopyAffinity, levels=c("Generalist", "Mixed", "Open")),
-                voltinism_z = factor(voltinism, levels=c("Univoltine", "Multivoltine"))) %>%
-  dplyr::select(species, mean, se, rangePrecip_z, rangeSize_z, aveWingspan_z, numReportedHostplantFamilies_z,
-                diapauseStage_z, disturbanceAffinity_z) %>%
-  dplyr::filter(complete.cases(.))
-
-southern_dx_df <- master_dx_df %>%
-  dplyr::filter(geo=="south") %>%
-  dplyr::mutate(rangeSize_z = scale(rangeSize),
-                rangePrecip_z = scale(rangePrecip),
-                aveWingspan_z = scale(aveWingspan),
-                numReportedHostplantFamilies_z = scale(numReportedHostplantFamilies),
-                diapauseStage_z = factor(diapauseStage, levels=c("Larva", "Egg", "Pupa", "Adult")),
-                disturbanceAffinity = ifelse(disturbanceAffinity=="Mixed", "Generalist", disturbanceAffinity)) %>%
-  dplyr::mutate(disturbanceAffinity_z = factor(disturbanceAffinity, levels=c("Generalist", "Avoidant", "Associated")),
-                edgeAffinity_z = factor(edgeAffinity, levels=c("Geenralist", "Avoidant", "Associated")),
-                canopyAffinity_z = factor(canopyAffinity, levels=c("Generalist", "Mixed", "Open")),
-                voltinism_z = factor(voltinism, levels=c("Univoltine", "Multivoltine"))) %>%
-  dplyr::select(species, mean, se, rangePrecip_z, rangeSize_z, aveWingspan_z, numReportedHostplantFamilies_z,
+                voltinism_z = factor(voltinism, levels=c("Univoltine", "Multivoltine"), order=TRUE),
+                rangeTemp_z = scale(rangeTemp),
+                rangePrecip_z = scale(rangePrecip)) %>%
+  dplyr::select(species, mean, se, sd, rangeTemp_z, 
+                rangePrecip_z, rangeSize_z, aveWingspan_z, 
+                numReportedHostplantFamilies_z,
                 diapauseStage_z, disturbanceAffinity_z) %>%
   dplyr::filter(complete.cases(.))
 
@@ -336,582 +321,305 @@ sp_tree$tip.label <- str_replace_all(sp_tree$tip.label, "_", " ")
 sp_tree$tip.label <- stringr::word(sp_tree$tip.label, start=3, end=4)
 
 sp_tree <- sp_tree %>%
-  ape::keep.tip(core_dx_df$species) %>%
+  ape::keep.tip(total_dx_df_model$species) %>%
   ape::vcv.phylo()
 
-# INTERCEPT ONLY MODELS
-library(brms)
-my_fit_1_core <- brms::brm(mean~1,
-                           data=core_dx_df,
-                           iter=200000,
-                           warmup=100000,
-                           thin=50,
-                           family=gaussian(),
-                           prior=c(prior(normal(0,10), "Intercept")),
-                           control=list(max_treedepth=15,
-                                        adapt_delta=0.99),
-                           cores=5,
-                           save_pars = save_pars(all = TRUE))
-my_fit_1_north <- brms::brm(mean~1,
-                            data=northern_dx_df,
-                            iter=200000,
-                            warmup=100000,
-                            thin=50,
-                            family=gaussian(),
-                            prior=c(prior(normal(0,10), "Intercept")),
-                            control=list(max_treedepth=15,
-                                         adapt_delta=0.99),
-                            cores=5,
-                            save_pars = save_pars(all = TRUE))
-my_fit_1_south <- brms::brm(mean~1,
-                            data=southern_dx_df,
-                            iter=200000,
-                            warmup=100000,
-                            thin=50,
-                            family=gaussian(),
-                            prior=c(prior(normal(0,10), "Intercept")),
-                            control=list(max_treedepth=15,
-                                         adapt_delta=0.99),
-                            cores=5,
-                            save_pars = save_pars(all = TRUE))
-my_fit_1_list <- list(my_fit_1_core, my_fit_1_south, my_fit_1_north)
-saveRDS(my_fit_1_list, "../../output/posthoc_200km_precip_fit1.rds")
+# INTERCEPT ONLY MODELS (MODEL A)
+MODEL_A <- brms::brm(mean~1,
+                     data=total_dx_df_model,
+                     iter=200000,
+                     warmup=100000,
+                     thin=50,
+                     family=gaussian(),
+                     prior=c(prior(normal(0,10), "Intercept")),
+                     control=list(max_treedepth=15,
+                                  adapt_delta=0.9999),
+                     cores=5,
+                     save_pars = save_pars(all = TRUE))
+saveRDS(MODEL_A, "../../output/modelFiles/200kmPrecip_ModelA.rds")
 
-# PHYLOGENETIC INTERCEPT MODELS
-my_fit_2_core <- brms::brm(mean~1+
-                             (1|gr(species, cov=sp_tree)),
-                           data=core_dx_df,
-                           data2=list(sp_tree=sp_tree),
-                           iter=200000,
-                           warmup=100000,
-                           thin=50,
-                           family=gaussian(),
-                           prior=c(prior(normal(0,10), class="Intercept")),
-                           control=list(max_treedepth=15,
-                                        adapt_delta=0.99),
-                           cores=5,
-                           save_pars = save_pars(all = TRUE))
-my_fit_2_north <- brms::brm(mean~1+
-                              (1|gr(species, cov=sp_tree)),
-                            data=northern_dx_df,
-                            data2=list(sp_tree=sp_tree),
-                            iter=200000,
-                            warmup=100000,
-                            thin=50,
-                            family=gaussian(),
-                            prior=c(prior(normal(0,10), "Intercept")),
-                            control=list(max_treedepth=15,
-                                         adapt_delta=0.99),
-                            cores=5,
-                            save_pars = save_pars(all = TRUE))
-my_fit_2_south <- brms::brm(mean~1+
-                              (1|gr(species, cov=sp_tree)),
-                            data=southern_dx_df,
-                            data2=list(sp_tree=sp_tree),
-                            iter=200000,
-                            warmup=100000,
-                            thin=50,
-                            family=gaussian(),
-                            prior=c(prior(normal(0,10), "Intercept")),
-                            control=list(max_treedepth=15,
-                                         adapt_delta=0.99),
-                            cores=5,
-                            save_pars = save_pars(all = TRUE))
-my_fit_2_list <- list(my_fit_2_core, my_fit_2_south, my_fit_2_north)
-saveRDS(my_fit_2_list, "../../output/posthoc_200km_precip_fit2.rds")
+# INTERCEPT + PHYLOGENY MODELS (MODEL B)
+MODEL_B <- brms::brm(mean~1+
+                       (1|gr(species, cov=sp_tree)),
+                     data=total_dx_df_model,
+                     data2=list(sp_tree=sp_tree),
+                     iter=200000,
+                     warmup=100000,
+                     thin=50,
+                     family=gaussian(),
+                     prior=c(prior(normal(0,10), "Intercept")),
+                     control=list(max_treedepth=15,
+                                  adapt_delta=0.9999),
+                     cores=5,
+                     save_pars = save_pars(all = TRUE))
+saveRDS(MODEL_B, "../../output/modelFiles/200kmPrecip_ModelB.rds")
 
-# TEMPERATURE ONLY MODELS
-my_fit_3_core <- brms::brm(mean~1+
-                             rangePrecip_z,
-                           data=core_dx_df,
-                           iter=200000,
-                           warmup=100000,
-                           thin=50,
-                           family=gaussian(),
-                           prior=c(prior(normal(0,10), "b"),
-                                   prior(normal(0,10), "Intercept")),
-                           control=list(max_treedepth=15,
-                                        adapt_delta=0.99),
-                           cores=5,
-                           save_pars = save_pars(all = TRUE))
-my_fit_3_north <- brms::brm(mean~1+
-                              rangePrecip_z,
-                            data=northern_dx_df,
-                            iter=200000,
-                            warmup=100000,
-                            thin=50,
-                            family=gaussian(),
-                            prior=c(prior(normal(0,10), "b"),
-                                    prior(normal(0,10), "Intercept")),
-                            control=list(max_treedepth=15,
-                                         adapt_delta=0.99),
-                            cores=5,
-                            save_pars = save_pars(all = TRUE))
-my_fit_3_south <- brms::brm(mean~1+
-                              rangePrecip_z,
-                            data=southern_dx_df,
-                            iter=200000,
-                            warmup=100000,
-                            thin=50,
-                            family=gaussian(),
-                            prior=c(prior(normal(0,10), "b"),
-                                    prior(normal(0,10), "Intercept")),
-                            control=list(max_treedepth=15,
-                                         adapt_delta=0.99),
-                            cores=5,
-                            save_pars = save_pars(all = TRUE))
-my_fit_3_list <- list(my_fit_3_core, my_fit_3_south, my_fit_3_north)
-saveRDS(my_fit_3_list, "../../output/posthoc_200km_precip_fit3.rds")
+# TEMPERATURE MODEL (MODEL C)
+MODEL_C <- brms::brm(mean~1+
+                       rangePrecip_z,
+                     data=total_dx_df_model,
+                     iter=200000,
+                     warmup=100000,
+                     thin=50,
+                     family=gaussian(),
+                     prior=c(prior(normal(0,10), "Intercept")),
+                     control=list(max_treedepth=15,
+                                  adapt_delta=0.9999),
+                     cores=5,
+                     save_pars = save_pars(all = TRUE))
+saveRDS(MODEL_C, "../../output/modelFiles/200kmPrecip_ModelC.rds")
 
-# TEMPERATURE AND PHYLOGENY MODEL
-my_fit_4_core <- brms::brm(mean~1+
-                             rangePrecip_z+
-                             (1|gr(species, cov=sp_tree)),
-                           data=core_dx_df,
-                           data2=list(sp_tree=sp_tree),
-                           iter=200000,
-                           warmup=100000,
-                           thin=50,
-                           family=gaussian(),
-                           prior=c(prior(normal(0,10), "b"),
-                                   prior(normal(0,10), "Intercept")),
-                           control=list(max_treedepth=15,
-                                        adapt_delta=0.9999),
-                           cores=5,
-                           save_pars = save_pars(all = TRUE))
-my_fit_4_north <- brms::brm(mean~1+
-                              rangePrecip_z+
-                              (1|gr(species, cov=sp_tree)),
-                            data=northern_dx_df,
-                            data2=list(sp_tree=sp_tree),
-                            iter=200000,
-                            warmup=100000,
-                            thin=50,
-                            family=gaussian(),
-                            prior=c(prior(normal(0,10), "b"),
-                                    prior(normal(0,10), "Intercept")),
-                            control=list(max_treedepth=15,
-                                         adapt_delta=0.9999),
-                            cores=5,
-                            save_pars = save_pars(all = TRUE))
-my_fit_4_south <- brms::brm(mean~1+
-                              rangePrecip_z+
-                              (1|gr(species, cov=sp_tree)),
-                            data=southern_dx_df,
-                            data2=list(sp_tree=sp_tree),
-                            iter=200000,
-                            warmup=100000,
-                            thin=50,
-                            family=gaussian(),
-                            prior=c(prior(normal(0,10), "b"),
-                                    prior(normal(0,10), "Intercept")),
-                            control=list(max_treedepth=15,
-                                         adapt_delta=0.999),
-                            cores=5,
-                            save_pars = save_pars(all = TRUE))
-my_fit_4_list <- list(my_fit_4_core, my_fit_4_south, my_fit_4_north)
-saveRDS(my_fit_4_list, "../../output/posthoc_200km_precip_fit4.rds")
+# TEMPERATURE + PHYLOGENY MODEL (MODEL D)
+MODEL_D <- brms::brm(mean~1+
+                       rangePrecip_z+
+                       (1|gr(species, cov=sp_tree)),
+                     data=total_dx_df_model,
+                     data2=list(sp_tree=sp_tree),
+                     iter=200000,
+                     warmup=100000,
+                     thin=50,
+                     family=gaussian(),
+                     prior=c(prior(normal(0,10), "Intercept")),
+                     control=list(max_treedepth=15,
+                                  adapt_delta=0.9999),
+                     cores=5,
+                     save_pars = save_pars(all = TRUE))
+saveRDS(MODEL_D, "../../output/modelFiles/200kmPrecip_ModelD.rds")
 
-# TEMPERATURE AND OVERWINTERING STAGE INTERACTION
-my_fit_5_core <- brms::brm(mean~1+
-                             rangePrecip_z*diapauseStage_z,
-                           data=core_dx_df,
-                           iter=200000,
-                           warmup=100000,
-                           thin=50,
-                           family=gaussian(),
-                           prior=c(prior(normal(0,10), "b"),
-                                   prior(normal(0,10), "Intercept")),
-                           control=list(max_treedepth=15,
-                                        adapt_delta=0.99),
-                           cores=5,
-                           save_pars = save_pars(all = TRUE))
-my_fit_5_north <- brms::brm(mean~1+
-                              rangePrecip_z*diapauseStage_z,
-                            data=northern_dx_df,
-                            iter=200000,
-                            warmup=100000,
-                            thin=50,
-                            family=gaussian(),
-                            prior=c(prior(normal(0,10), "b"),
-                                    prior(normal(0,10), "Intercept")),
-                            control=list(max_treedepth=15,
-                                         adapt_delta=0.99),
-                            cores=5,
-                            save_pars = save_pars(all = TRUE))
-my_fit_5_south <- brms::brm(mean~1+
-                              rangePrecip_z*diapauseStage_z,
-                            data=southern_dx_df,
-                            iter=200000,
-                            warmup=100000,
-                            thin=50,
-                            family=gaussian(),
-                            prior=c(prior(normal(0,10), "b"),
-                                    prior(normal(0,10), "Intercept")),
-                            control=list(max_treedepth=15,
-                                         adapt_delta=0.99),
-                            cores=5,
-                            save_pars = save_pars(all = TRUE))
-my_fit_5_list <- list(my_fit_5_core, my_fit_5_south, my_fit_5_north)
-saveRDS(my_fit_5_list, "../../output/posthoc_200km_precip_fit5.rds")
+# RANGE SIZE MODEL (MODEL E)
+MODEL_E <- brms::brm(mean~1+
+                       rangeSize_z,
+                     data=total_dx_df_model,
+                     iter=200000,
+                     warmup=100000,
+                     thin=50,
+                     family=gaussian(),
+                     prior=c(prior(normal(0,10), "Intercept")),
+                     control=list(max_treedepth=15,
+                                  adapt_delta=0.9999),
+                     cores=5,
+                     save_pars = save_pars(all = TRUE))
+saveRDS(MODEL_E, "../../output/modelFiles/200kmPrecip_ModelE.rds")
 
-# TEMPERATURE AND OVERWINTERING STAGE INTERACTION WITH PHYLOGENY
-my_fit_6_core <- brms::brm(mean~1+
-                             rangePrecip_z*diapauseStage_z+
-                             (1|gr(species, cov=sp_tree)),
-                           data=core_dx_df,
-                           data2=list(sp_tree=sp_tree),
-                           iter=200000,
-                           warmup=100000,
-                           thin=50,
-                           family=gaussian(),
-                           prior=c(prior(normal(0,10), "b"),
-                                   prior(normal(0,10), "Intercept")),
-                           control=list(max_treedepth=15,
-                                        adapt_delta=0.99),
-                           cores=5,
-                           save_pars = save_pars(all = TRUE))
-my_fit_6_north <- brms::brm(mean~1+
-                              rangePrecip_z*diapauseStage_z+
-                              (1|gr(species, cov=sp_tree)),
-                            data=northern_dx_df,
-                            data2=list(sp_tree=sp_tree),
-                            iter=200000,
-                            warmup=100000,
-                            thin=50,
-                            family=gaussian(),
-                            prior=c(prior(normal(0,10), "b"),
-                                    prior(normal(0,10), "Intercept")),
-                            control=list(max_treedepth=15,
-                                         adapt_delta=0.99),
-                            cores=5,
-                            save_pars = save_pars(all = TRUE))
-my_fit_6_south <- brms::brm(mean~1+
-                              rangePrecip_z*diapauseStage_z+
-                              (1|gr(species, cov=sp_tree)),
-                            data=southern_dx_df,
-                            data2=list(sp_tree=sp_tree),
-                            iter=200000,
-                            warmup=100000,
-                            thin=50,
-                            family=gaussian(),
-                            prior=c(prior(normal(0,10), "b"),
-                                    prior(normal(0,10), "Intercept")),
-                            control=list(max_treedepth=15,
-                                         adapt_delta=0.99),
-                            cores=5,
-                            save_pars = save_pars(all = TRUE))
-my_fit_6_list <- list(my_fit_6_core, my_fit_6_south, my_fit_6_north)
-saveRDS(my_fit_6_list, "../../output/posthoc_200km_precip_fit6.rds")
+# RANGE SIZE + PHYLOGENY MODEL (MODEL F)
+MODEL_F <- brms::brm(mean~1+
+                       rangeSize_z+
+                       (1|gr(species, cov=sp_tree)),
+                     data=total_dx_df_model,
+                     data2=list(sp_tree=sp_tree),
+                     iter=200000,
+                     warmup=100000,
+                     thin=50,
+                     family=gaussian(),
+                     prior=c(prior(normal(0,10), "Intercept")),
+                     control=list(max_treedepth=15,
+                                  adapt_delta=0.9999),
+                     cores=5,
+                     save_pars = save_pars(all = TRUE))
+saveRDS(MODEL_F, "../../output/modelFiles/200kmPrecip_ModelF.rds")
 
-# TRAIT ONLY MODELS (ALL TRAITS NO INTERACTIONS)
-my_fit_7_core <- brms::brm(mean~1+
-                             rangePrecip_z+
-                             rangeSize_z+
-                             aveWingspan_z+
-                             numReportedHostplantFamilies_z+
-                             diapauseStage_z+
-                             disturbanceAffinity_z,
-                           data=core_dx_df,
-                           iter=200000,
-                           warmup=100000,
-                           thin=50,
-                           family=gaussian(),
-                           prior=c(prior(normal(0,10), "b"),
-                                   prior(normal(0,10), "Intercept")),
-                           control=list(max_treedepth=15,
-                                        adapt_delta=0.99),
-                           cores=5,
-                           save_pars = save_pars(all = TRUE))
-my_fit_7_north <- brms::brm(mean~1+
-                              rangePrecip_z+
-                              rangeSize_z+
-                              aveWingspan_z+
-                              numReportedHostplantFamilies_z+
-                              diapauseStage_z+
-                              disturbanceAffinity_z,
-                            data=northern_dx_df,
-                            iter=200000,
-                            warmup=100000,
-                            thin=50,
-                            family=gaussian(),
-                            prior=c(prior(normal(0,10), "b"),
-                                    prior(normal(0,10), "Intercept")),
-                            control=list(max_treedepth=15,
-                                         adapt_delta=0.99),
-                            cores=5,
-                            save_pars = save_pars(all = TRUE))
-my_fit_7_south <- brms::brm(mean~1+
-                              rangePrecip_z+
-                              rangeSize_z+
-                              aveWingspan_z+
-                              numReportedHostplantFamilies_z+
-                              diapauseStage_z+
-                              disturbanceAffinity_z,
-                            data=southern_dx_df,
-                            iter=200000,
-                            warmup=100000,
-                            thin=50,
-                            family=gaussian(),
-                            prior=c(prior(normal(0,10), "b"),
-                                    prior(normal(0,10), "Intercept")),
-                            control=list(max_treedepth=15,
-                                         adapt_delta=0.99),
-                            cores=5,
-                            save_pars = save_pars(all = TRUE))
-my_fit_7_list <- list(my_fit_7_core, my_fit_7_south, my_fit_7_north)
-saveRDS(my_fit_7_list, "../../output/posthoc_200km_precip_fit7.rds")
+# WINGSPAN MODEL (MODEL G)
+MODEL_G <- brms::brm(mean~1+
+                       aveWingspan_z,
+                     data=total_dx_df_model,
+                     iter=200000,
+                     warmup=100000,
+                     thin=50,
+                     family=gaussian(),
+                     prior=c(prior(normal(0,10), "Intercept")),
+                     control=list(max_treedepth=15,
+                                  adapt_delta=0.9999),
+                     cores=5,
+                     save_pars = save_pars(all = TRUE))
+saveRDS(MODEL_G, "../../output/modelFiles/200kmPrecip_ModelG.rds")
 
-# TRAIT AND PHYLOGENY MODELS
-my_fit_8_core <- brms::brm(mean~1+
-                             rangePrecip_z+
-                             rangeSize_z+
-                             aveWingspan_z+
-                             numReportedHostplantFamilies_z+
-                             diapauseStage_z+
-                             disturbanceAffinity_z+
-                             (1|gr(species, cov=sp_tree)),
-                           data=core_dx_df,
-                           data2=list(sp_tree=sp_tree),
-                           iter=200000,
-                           warmup=100000,
-                           thin=50,
-                           family=gaussian(),
-                           prior=c(prior(normal(0,10), "b"),
-                                   prior(normal(0,10), "Intercept")),
-                           control=list(max_treedepth=15,
-                                        adapt_delta=0.9999),
-                           cores=5,
-                           save_pars = save_pars(all = TRUE))
-my_fit_8_north <- brms::brm(mean~1+
-                              rangePrecip_z+
-                              rangeSize_z+
-                              aveWingspan_z+
-                              numReportedHostplantFamilies_z+
-                              diapauseStage_z+
-                              disturbanceAffinity_z+
-                              (1|gr(species, cov=sp_tree)),
-                            data=northern_dx_df,
-                            data2=list(sp_tree=sp_tree),
-                            iter=200000,
-                            warmup=100000,
-                            thin=50,
-                            family=gaussian(),
-                            prior=c(prior(normal(0,10), "b"),
-                                    prior(normal(0,10), "Intercept")),
-                            control=list(max_treedepth=15,
-                                         adapt_delta=0.9999),
-                            cores=5,
-                            save_pars = save_pars(all = TRUE))
-my_fit_8_south <- brms::brm(mean~1+
-                              rangePrecip_z+
-                              rangeSize_z+
-                              aveWingspan_z+
-                              numReportedHostplantFamilies_z+
-                              diapauseStage_z+
-                              disturbanceAffinity_z+
-                              (1|gr(species, cov=sp_tree)),
-                            data=southern_dx_df,
-                            data2=list(sp_tree=sp_tree),
-                            iter=200000,
-                            warmup=100000,
-                            thin=50,
-                            family=gaussian(),
-                            prior=c(prior(normal(0,10), "b"),
-                                    prior(normal(0,10), "Intercept")),
-                            control=list(max_treedepth=15,
-                                         adapt_delta=0.999),
-                            cores=5,
-                            save_pars = save_pars(all = TRUE))
-my_fit_8_list <- list(my_fit_8_core, my_fit_8_south, my_fit_8_north)
-saveRDS(my_fit_8_list, "../../output/posthoc_200km_precip_fit8.rds")
+# WINGSPAN + PHYLOGENY MODEL (MODEL H)
+MODEL_H <- brms::brm(mean~1+
+                       aveWingspan_z+
+                       (1|gr(species, cov=sp_tree)),
+                     data=total_dx_df_model,
+                     data2=list(sp_tree=sp_tree),
+                     iter=200000,
+                     warmup=100000,
+                     thin=50,
+                     family=gaussian(),
+                     prior=c(prior(normal(0,10), "Intercept")),
+                     control=list(max_treedepth=15,
+                                  adapt_delta=0.9999),
+                     cores=5,
+                     save_pars = save_pars(all = TRUE))
+saveRDS(MODEL_H, "../../output/modelFiles/200kmPrecip_ModelH.rds")
+
+# HOSTPLANT MODEL (MODEL I)
+MODEL_I <- brms::brm(mean~1+
+                       numReportedHostplantFamilies_z,
+                     data=total_dx_df_model,
+                     iter=200000,
+                     warmup=100000,
+                     thin=50,
+                     family=gaussian(),
+                     prior=c(prior(normal(0,10), "Intercept")),
+                     control=list(max_treedepth=15,
+                                  adapt_delta=0.9999),
+                     cores=5,
+                     save_pars = save_pars(all = TRUE))
+saveRDS(MODEL_I, "../../output/modelFiles/200kmPrecip_ModelI.rds")
+
+# HOSTPLANT + PHYLOGENY MODEL (MODEL J)
+MODEL_J <- brms::brm(mean~1+
+                       numReportedHostplantFamilies_z+
+                       (1|gr(species, cov=sp_tree)),
+                     data=total_dx_df_model,
+                     data2=list(sp_tree=sp_tree),
+                     iter=200000,
+                     warmup=100000,
+                     thin=50,
+                     family=gaussian(),
+                     prior=c(prior(normal(0,10), "Intercept")),
+                     control=list(max_treedepth=15,
+                                  adapt_delta=0.9999),
+                     cores=5,
+                     save_pars = save_pars(all = TRUE))
+saveRDS(MODEL_J, "../../output/modelFiles/200kmPrecip_ModelJ.rds")
+
+# OVERWINTERING MODEL (MODEL K)
+MODEL_K <- brms::brm(mean~1+
+                       rangePrecip_z+
+                       diapauseStage_z+
+                       rangePrecip_z:diapauseStage_z,
+                     data=total_dx_df_model,
+                     iter=200000,
+                     warmup=100000,
+                     thin=50,
+                     family=gaussian(),
+                     prior=c(prior(normal(0,10), "Intercept")),
+                     control=list(max_treedepth=15,
+                                  adapt_delta=0.9999),
+                     cores=5,
+                     save_pars = save_pars(all = TRUE))
+saveRDS(MODEL_K, "../../output/modelFiles/200kmPrecip_ModelK.rds")
+
+# OVERWINTERING + PHYLOGENY MODEL (MODEL L)
+MODEL_L <- brms::brm(mean~1+
+                       rangePrecip_z+
+                       diapauseStage_z+
+                       rangePrecip_z:diapauseStage_z+
+                       (1|gr(species, cov=sp_tree)),
+                     data=total_dx_df_model,
+                     data2=list(sp_tree=sp_tree),
+                     iter=200000,
+                     warmup=100000,
+                     thin=50,
+                     family=gaussian(),
+                     prior=c(prior(normal(0,10), "Intercept")),
+                     control=list(max_treedepth=15,
+                                  adapt_delta=0.9999),
+                     cores=5,
+                     save_pars = save_pars(all = TRUE))
+saveRDS(MODEL_L, "../../output/modelFiles/200kmPrecip_ModelL.rds")
+
+# COMPLEX MODEL (MODEL M)
+MODEL_M <- brms::brm(mean~1+
+                       rangePrecip_z+
+                       rangeSize_z+
+                       diapauseStage_z+
+                       aveWingspan_z+
+                       numReportedHostplantFamilies_z+
+                       disturbanceAffinity_z,
+                     data=total_dx_df_model,
+                     iter=200000,
+                     warmup=100000,
+                     thin=50,
+                     family=gaussian(),
+                     prior=c(prior(normal(0,10), "Intercept")),
+                     control=list(max_treedepth=15,
+                                  adapt_delta=0.9999),
+                     cores=5,
+                     save_pars = save_pars(all = TRUE))
+saveRDS(MODEL_M, "../../output/modelFiles/200kmPrecip_ModelM.rds")
+
+# COMPLEX + PHYLOGENY MODEL (MODEL N)
+MODEL_N <- brms::brm(mean~1+
+                       rangePrecip_z+
+                       rangeSize_z+
+                       diapauseStage_z+
+                       aveWingspan_z+
+                       numReportedHostplantFamilies_z+
+                       disturbanceAffinity_z+
+                       (1|gr(species, cov=sp_tree)),
+                     data=total_dx_df_model,
+                     data2=list(sp_tree=sp_tree),
+                     iter=200000,
+                     warmup=100000,
+                     thin=50,
+                     family=gaussian(),
+                     prior=c(prior(normal(0,10), "Intercept")),
+                     control=list(max_treedepth=15,
+                                  adapt_delta=0.99999),
+                     cores=5,
+                     save_pars = save_pars(all = TRUE))
+saveRDS(MODEL_N, "../../output/modelFiles/200kmPrecip_ModelN.rds")
+
 
 ####################################################################################################
 ## COMPARE ALL OF THE MODELS TO ONE ANOTHER AND VISUALIZE
 ####################################################################################################
-my_fit_1_list <- readRDS("../../output/posthoc_200km_precip_fit1.rds")
-my_fit_2_list <- readRDS("../../output/posthoc_200km_precip_fit2.rds")
-my_fit_3_list <- readRDS("../../output/posthoc_200km_precip_fit3.rds")
-my_fit_4_list <- readRDS("../../output/posthoc_200km_precip_fit4.rds")
-my_fit_5_list <- readRDS("../../output/posthoc_200km_precip_fit5.rds")
-my_fit_6_list <- readRDS("../../output/posthoc_200km_precip_fit6.rds")
-my_fit_7_list <- readRDS("../../output/posthoc_200km_precip_fit7.rds")
-my_fit_8_list <- readRDS("../../output/posthoc_200km_precip_fit8.rds")
 
-loo::loo_compare(loo::loo(my_fit_1_core, moment_match=TRUE), 
-                 loo::loo(my_fit_2_core, moment_match=TRUE), 
-                 loo::loo(my_fit_3_core, moment_match=TRUE), 
-                 loo::loo(my_fit_4_core, moment_match=TRUE),
-                 loo::loo(my_fit_5_core, moment_match=TRUE),
-                 loo::loo(my_fit_6_core, moment_match=TRUE),
-                 loo::loo(my_fit_7_core, moment_match=TRUE),
-                 loo::loo(my_fit_8_core, moment_match=TRUE))
+loo::loo_compare(loo::loo(MODEL_A, moment_match=TRUE),
+                 loo::loo(MODEL_B, moment_match=TRUE),
+                 loo::loo(MODEL_C, moment_match=TRUE),
+                 loo::loo(MODEL_D, moment_match=TRUE),
+                 loo::loo(MODEL_E, moment_match=TRUE),
+                 loo::loo(MODEL_F, moment_match=TRUE),
+                 loo::loo(MODEL_G, moment_match=TRUE),
+                 loo::loo(MODEL_H, moment_match=TRUE),
+                 loo::loo(MODEL_I, moment_match=TRUE),
+                 loo::loo(MODEL_J, moment_match=TRUE),
+                 loo::loo(MODEL_K, moment_match=TRUE),
+                 loo::loo(MODEL_L, moment_match=TRUE),
+                 loo::loo(MODEL_M, moment_match=TRUE),
+                 loo::loo(MODEL_N, moment_match=TRUE))
 
-loo::loo_compare(loo::loo(my_fit_1_north, moment_match=TRUE), 
-                 loo::loo(my_fit_2_north, moment_match=TRUE), 
-                 loo::loo(my_fit_3_north, moment_match=TRUE), 
-                 loo::loo(my_fit_4_north, moment_match=TRUE),
-                 loo::loo(my_fit_5_north, moment_match=TRUE),
-                 loo::loo(my_fit_6_north, moment_match=TRUE),
-                 loo::loo(my_fit_7_north, moment_match=TRUE),
-                 loo::loo(my_fit_8_north, moment_match=TRUE))
-
-loo::loo_compare(loo::loo(my_fit_1_south, moment_match=TRUE), 
-                 loo::loo(my_fit_2_south, moment_match=TRUE), 
-                 loo::loo(my_fit_3_south, moment_match=TRUE), 
-                 loo::loo(my_fit_4_south, moment_match=TRUE),
-                 loo::loo(my_fit_5_south, moment_match=TRUE),
-                 loo::loo(my_fit_6_south, moment_match=TRUE),
-                 loo::loo(my_fit_7_south, moment_match=TRUE),
-                 loo::loo(my_fit_8_south, moment_match=TRUE))
-
-
-# Grab the draws from the top candidate model
-sp_traits <- sp_traits %>%
-  dplyr::select(family, species) %>%
-  arrange(family) %>%
-  group_by(family) %>%
-  arrange(species, .by_group=TRUE) %>%
-  ungroup() %>%
-  dplyr::mutate(globalOrdering=row_number())
-
-
-# Pull the trait parameter estimates
-my_draws_4_south <- tidybayes::gather_draws(my_fit_4_south,
-                                            b_Intercept, b_rangePrecip_z, regex=TRUE) %>%
+# GRAB DRAWS
+MODEL_C_DRAWS <- tidybayes::gather_draws(MODEL_C,
+                                         b_Intercept, 
+                                         b_rangePrecip_z, regex=TRUE)  %>%
   dplyr::mutate(.variable=str_replace(.variable, "b_", "")) %>%
-  dplyr::mutate(.variable=factor(.variable, levels=c("rangePrecip_z",
-                                                     "Intercept")))
-
-my_draws_4_core <- tidybayes::gather_draws(my_fit_4_core,
-                                           b_Intercept, b_rangePrecip_z, regex=TRUE)  %>%
-  dplyr::mutate(.variable=str_replace(.variable, "b_", "")) %>%
-  dplyr::mutate(.variable=factor(.variable, levels=c("rangePrecip_z",
-                                                     "Intercept")))
-
-my_draws_4_north <- tidybayes::gather_draws(my_fit_4_north,
-                                            b_Intercept, b_rangePrecip_z, regex=TRUE)  %>%
-  dplyr::mutate(.variable=str_replace(.variable, "b_", "")) %>%
-  dplyr::mutate(.variable=factor(.variable, levels=c("rangePrecip_z",
+  dplyr::mutate(.variable=factor(.variable, levels=c("rangeTemp_z",
                                                      "Intercept")))
 
 # FIGURE FOUR ########################################
-ggplot()+
-  tidybayes::stat_interval(my_draws_4_north,
-                           mapping=aes(x=.value, y=.variable),
-                           position=position_nudge(y=+0.2))+
-  scale_color_brewer(palette="Purples", name="Cred. Int.")+
-  ggnewscale::new_scale_color()+
-  tidybayes::stat_interval(my_draws_4_core,
-                           mapping=aes(x=.value, y=.variable))+
-  scale_color_brewer(palette="Greys", name="Cred. Int.")+
-  ggnewscale::new_scale_color()+
-  tidybayes::stat_interval(my_draws_4_south,
-                           mapping=aes(x=.value, y=.variable),
-                           position=position_nudge(y=-0.2))+
-  scale_color_brewer(palette="Purples", name="Cred. Int.")+
-  geom_vline(xintercept=0, linetype=2)+
-  labs(x="Parameter Estimate", y="Parameter")+
-  scale_y_discrete(labels=c("Range-wide\nPrecip.", "Intercept"))+
+MODEL_C_LINES <- total_dx_df_model %>%
+  modelr::data_grid(rangePrecip_z=seq(-3, 2, length.out=50)) %>%
+  tidybayes::add_predicted_draws(MODEL_C)
+
+
+ggplot(MODEL_C_LINES,
+       mapping=aes(x=rangePrecip_z, y=mean))+
+  tidybayes::stat_lineribbon(mapping=aes(y=.prediction),
+                             .width=c(0.95, 0.8, 0.5))+
+  scale_fill_brewer(palette="Greens", name="Credible Interval")+
+  geom_point(data=total_dx_df_model,
+             mapping=aes(x=rangePrecip_z, y=mean),
+             size=2)+
+  geom_hline(yintercept=0, linetype=2)+
+  scale_y_continuous(labels=scales::percent_format(),
+                     name="Mean Occupancy Shift from\nthe 1970s to 2010s",
+                     limits=c(-0.12, 0.12))+
+  scale_x_continuous(name="Range-wide Average Annual Precipitation [mm]",
+                     limits=c(-2,2),
+                     breaks=seq(-2,2,0.5),
+                     labels=round((seq(-2,2,0.5)*sd(sp_traits$rangePrecip))+
+                                    mean(sp_traits$rangePrecip)), 1)+
   theme_cowplot()+
-  theme(plot.background=element_rect(fill="white", color="white"),
-        axis.text.y=element_text(angle=90, hjust=0.5),
-        legend.position="top")
-ggsave2("../../figures/supplemental/FIGURE_004_precip200.png", dpi=400, height=3, width=6)
+  theme(plot.background=element_rect(fill="white",
+                                     color="white"),
+        legend.position=c(0.1, 0.85))
+ggsave2("../../figures/supplemental/FIGURE_004_precip200.png", dpi=400, height=5, width=10)
 
-## PLOT PHYLOGENETIC INTERCEPTS ON TREE STRUCTURE ##################################################
-# Pull the phylogenetic intercepts, summarize by species
-my_draws_4_core_phylo <- tidybayes::spread_draws(my_fit_4_core,
-                                                 r_species[species,term]) %>%
-  dplyr::mutate(species=str_replace(species, "[.]", " ")) %>%
-  dplyr::group_by(species) %>%
-  dplyr::mutate(mean=mean(r_species),
-                sd=sd(r_species)) %>%
-  dplyr::mutate(crossZero=ifelse(between(0, mean-sd, mean+sd), TRUE, FALSE)) %>%
-  dplyr::select(species, mean, sd, crossZero) %>%
-  dplyr::ungroup() %>%
-  unique() %>%
-  dplyr::mutate(color=ifelse(crossZero==TRUE, NA, mean),
-                alpha=scales::rescale(1-sd, c(0.7,1)))
-
-my_draws_4_south_phylo <- tidybayes::spread_draws(my_fit_4_south,
-                                                  r_species[species,term]) %>%
-  dplyr::mutate(species=str_replace(species, "[.]", " ")) %>%
-  dplyr::group_by(species) %>%
-  dplyr::mutate(mean=mean(r_species),
-                sd=sd(r_species)) %>%
-  dplyr::mutate(crossZero=ifelse(between(0, mean-sd, mean+sd), TRUE, FALSE)) %>%
-  dplyr::select(species, mean, sd, crossZero) %>%
-  dplyr::ungroup() %>%
-  unique() %>%
-  dplyr::mutate(color=ifelse(crossZero==TRUE, NA, mean),
-                alpha=scales::rescale(1-sd, c(0.7,1)))
-
-my_draws_4_north_phylo <- tidybayes::spread_draws(my_fit_4_north,
-                                                  r_species[species,term]) %>%
-  dplyr::mutate(species=str_replace(species, "[.]", " ")) %>%
-  dplyr::group_by(species) %>%
-  dplyr::mutate(mean=mean(r_species),
-                sd=sd(r_species)) %>%
-  dplyr::mutate(crossZero=ifelse(between(0, mean-sd, mean+sd), TRUE, FALSE)) %>%
-  dplyr::select(species, mean, sd, crossZero) %>%
-  dplyr::ungroup() %>%
-  unique() %>%
-  dplyr::mutate(color=ifelse(crossZero==TRUE, NA, mean),
-                alpha=scales::rescale(1-sd, c(0.7,1)))
-
-my_draws_4_core_phylo$south_mean <- my_draws_4_south_phylo$mean
-my_draws_4_core_phylo <- my_draws_4_core_phylo %>%
-  left_join(my_draws_4_north_phylo, by="species") %>%
-  dplyr::mutate(mean=mean.x, south_mean=south_mean, north_mean=mean.y)
-
-my_tree <- readRDS("../../output/tree_topology.rds") %>%
-  ape::keep.tip(tip=my_draws_4_core_phylo$species) %>%
-  tidytree::full_join(my_draws_4_core_phylo, by=c("label"="species"))
-
-FIGURE_FOUR_TREE <- ggtree::ggtree(my_tree)+
-  # ggtree::geom_hilight(node=92, fill="red", color=NA)+
-  # ggtree::geom_hilight(node=105, fill="red", color=NA)+
-  # ggtree::geom_hilight(node=114, fill="red", color=NA)+
-  # ggtree::geom_hilight(node=118, fill="blue", color=NA)+
-  # ggtree::geom_hilight(node=80, fill="red", color=NA)+
-  # ggtree::geom_hilight(node=70, fill="red", color=NA)+
-  ggtree::geom_tippoint(mapping=aes(color=mean),
-                        size=2, position=position_nudge(x=2.5))+
-  ggtree::geom_tippoint(mapping=aes(color=south_mean, fill=south_mean),
-                        size=2, shape=25)+
-  ggtree::geom_tippoint(mapping=aes(color=north_mean, fill=north_mean),
-                        size=2, shape=24, position=position_nudge(x=5))+
-  scale_color_gradientn(colors=c("firebrick4", 
-                                             "firebrick1",
-                                             "grey45",
-                                             "dodgerblue", 
-                                             "dodgerblue4"),
-                                             na.value=NA,
-                        limits=c(-0.2,0.2), name="Mean Occ. Shift",
-                        labels=scales::percent)+
-  scale_fill_gradientn(colors=c("firebrick4", 
-                                            "firebrick1",
-                                            "grey45",
-                                            "dodgerblue", 
-                                            "dodgerblue4"),
-                                            na.value=NA,
-                       limits=c(-0.2,0.2), name="Mean Occ. Shift",
-                       labels=scales::percent)+
-  ggtree::geom_tiplab(offset=6, fontface="italic", size=3)+
-  # ggtree::geom_nodelab(mapping=aes(label=node))+
-  xlim(c(-10,175))+
-  ggtree::theme_tree()+
-  theme(legend.position=c(0.1, 0.65))
+# Pagel's Lambda Estimates
+hyp <- "sd_species__Intercept^2 / (sd_species__Intercept^2 + sigma^2) = 0"
+(hyp <- brms::hypothesis(MODEL_D, hyp, class = NULL))
 
 hyp <- "sd_species__Intercept^2 / (sd_species__Intercept^2 + sigma^2) = 0"
-(hyp <- brms::hypothesis(my_fit_4_core, hyp, class = NULL))
-
-hyp <- "sd_species__Intercept^2 / (sd_species__Intercept^2 + sigma^2) = 0"
-(hyp <- brms::hypothesis(my_fit_4_north, hyp, class = NULL))
-
-hyp <- "sd_species__Intercept^2 / (sd_species__Intercept^2 + sigma^2) = 0"
-(hyp <- brms::hypothesis(my_fit_4_south, hyp, class = NULL))
-
-
-
+(hyp <- brms::hypothesis(MODEL_H, hyp, class = NULL))

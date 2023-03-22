@@ -345,8 +345,7 @@ FIGURE_ONE_A <- ggplot()+
   geom_tile(temp_dx,
           mapping=aes(x=x, y=y, fill=value))+
   colorspace::scale_fill_continuous_diverging(palette="Blue-Red",
-                                              name="Change in\nAverage Annual\nMin. Temp [C]",
-                                              guide=guide_colorbar(title.position="top"),
+                                              name="Change in Average\nAnnualMin. Temp [C]",
                                               limits=c(-3,4))+
   geom_sf(basemap,
           mapping=aes(),
@@ -364,7 +363,7 @@ FIGURE_ONE_B <- ggplot()+
           fill=NA)+
   theme_map()+
   theme(legend.position=c(0.00, 0.3),
-        legend.direction="vertical")
+        legend.direction="horizontal")
 
 FIGURE_ONE_C <- ggplot()+
   geom_point(occ_sum,
@@ -375,13 +374,25 @@ FIGURE_ONE_C <- ggplot()+
   scale_x_continuous(limits=c(1970,2019))+
   scale_y_log10(limits=c(10,15000))+
   labs(x="Year of Collection/Observation",
-       y="Number of\nOccurrences (log10)")+
+       y="Number of\nOccurrences")+
   theme_cowplot()+
   theme(legend.position="none")
 
-FIGURE_ONE_TOP <- cowplot::plot_grid(FIGURE_ONE_A, FIGURE_ONE_B,
+FIGURE_ONE_B_LEGEND <- get_legend(FIGURE_ONE_B)
+FIGURE_ONE_A_LEGEND <- get_legend(FIGURE_ONE_A)
+
+FIGURE_ONE_TOP <- cowplot::plot_grid(FIGURE_ONE_A+theme(legend.position="none"), 
+                                     FIGURE_ONE_B+theme(legend.position="none"),
                    ncol=2, labels=c("(a)", "(b)"))
-FIGURE_ONE <- cowplot::plot_grid(FIGURE_ONE_TOP,
+FIGURE_ONE_TOP2 <- cowplot::plot_grid(FIGURE_ONE_TOP,
+                                      cowplot::plot_grid(NULL,
+                                                         FIGURE_ONE_A_LEGEND,
+                                                         FIGURE_ONE_B_LEGEND,
+                                                         NULL, ncol=4,
+                                                         rel_widths=c(0.15, 0.35, 0.25, 0.25)),
+                                      nrow=2,
+                                      rel_heights=c(1,0.1))
+FIGURE_ONE <- cowplot::plot_grid(FIGURE_ONE_TOP2,
                                  FIGURE_ONE_C,
                                  nrow=2, labels=c("", "(c)"))+
   theme(plot.background=element_rect(fill="white", color="white"))
