@@ -365,9 +365,12 @@ total_dx_df_model <- total_dx_df %>%
                 canopyAffinity_z = factor(canopyAffinity, levels=c("Generalist", "Mixed", "Open")),
                 voltinism_z = factor(voltinism, levels=c("Univoltine", "Multivoltine"), order=TRUE),
                 rangeTemp_z = scale(rangeTemp),
-                rangePrecip_z = scale(rangePrecip)) %>%
+                rangePrecip_z = scale(rangePrecip),
+                varTemp_z = scale(rangeTempVar),
+                varPrecip_z = scale(rangePrecipVar)) %>%
   dplyr::select(species, mean, se, sd, rangeTemp_z, 
-                rangePrecip_z, rangeSize_z, aveWingspan_z, 
+                rangePrecip_z, varTemp_z, varPrecip_z, 
+                rangeSize_z, aveWingspan_z, 
                 numReportedHostplantFamilies_z,
                 diapauseStage_z, disturbanceAffinity_z) %>%
   dplyr::filter(complete.cases(.))
@@ -441,6 +444,38 @@ MODEL_D <- brms::brm(mean~1+
                      cores=5,
                      save_pars = save_pars(all = TRUE))
 saveRDS(MODEL_D, "../../output/modelFiles/200kmTemp_ModelD.rds")
+
+# TEMPERATURE MODEL (MODEL C2)
+MODEL_C2 <- brms::brm(mean~1+
+                        varTemp_z,
+                      data=total_dx_df_model,
+                      iter=200000,
+                      warmup=100000,
+                      thin=50,
+                      family=gaussian(),
+                      prior=c(prior(normal(0,10), "Intercept")),
+                      control=list(max_treedepth=15,
+                                   adapt_delta=0.9999),
+                      cores=5,
+                      save_pars = save_pars(all = TRUE))
+saveRDS(MODEL_C2, "../../output/modelFiles/200kmTemp_ModelC2.rds")
+
+# TEMPERATURE + PHYLOGENY MODEL (MODEL D2)
+MODEL_D2 <- brms::brm(mean~1+
+                        varTemp_z+
+                        (1|gr(species, cov=sp_tree)),
+                      data=total_dx_df_model,
+                      data2=list(sp_tree=sp_tree),
+                      iter=200000,
+                      warmup=100000,
+                      thin=50,
+                      family=gaussian(),
+                      prior=c(prior(normal(0,10), "Intercept")),
+                      control=list(max_treedepth=16,
+                                   adapt_delta=0.99999),
+                      cores=5,
+                      save_pars = save_pars(all = TRUE))
+saveRDS(MODEL_D2, "../../output/modelFiles/200kmTemp_ModelD2.rds")
 
 # RANGE SIZE MODEL (MODEL E)
 MODEL_E <- brms::brm(mean~1+
@@ -624,6 +659,8 @@ loo::loo_compare(loo::loo(MODEL_A, moment_match=TRUE),
                  loo::loo(MODEL_B, moment_match=TRUE),
                  loo::loo(MODEL_C, moment_match=TRUE),
                  loo::loo(MODEL_D, moment_match=TRUE),
+                 loo::loo(MODEL_C2, moment_match=TRUE),
+                 loo::loo(MODEL_D2, moment_match=TRUE),
                  loo::loo(MODEL_E, moment_match=TRUE),
                  loo::loo(MODEL_F, moment_match=TRUE),
                  loo::loo(MODEL_G, moment_match=TRUE),
@@ -651,7 +688,7 @@ ggplot(MODEL_C_LINES,
        mapping=aes(x=rangeTemp_z, y=mean))+
   tidybayes::stat_lineribbon(mapping=aes(y=.prediction),
                              .width=c(0.95, 0.8, 0.5))+
-  scale_fill_brewer(palette="Greens", name="Credible Interval")+
+  scale_fill_brewer(palette="Greens", name="Posterior Predictive Interval")+
   geom_point(data=total_dx_df_model,
              mapping=aes(x=rangeTemp_z, y=mean),
              size=2)+

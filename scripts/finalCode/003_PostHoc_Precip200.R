@@ -309,12 +309,33 @@ total_dx_df_model <- total_dx_df %>%
                 canopyAffinity_z = factor(canopyAffinity, levels=c("Generalist", "Mixed", "Open")),
                 voltinism_z = factor(voltinism, levels=c("Univoltine", "Multivoltine"), order=TRUE),
                 rangeTemp_z = scale(rangeTemp),
-                rangePrecip_z = scale(rangePrecip)) %>%
+                rangePrecip_z = scale(rangePrecip),
+                varTemp_z = scale(rangeTempVar),
+                varPrecip_z = scale(rangePrecipVar)) %>%
   dplyr::select(species, mean, se, sd, rangeTemp_z, 
-                rangePrecip_z, rangeSize_z, aveWingspan_z, 
+                rangePrecip_z, varTemp_z, varPrecip_z, 
+                rangeSize_z, aveWingspan_z, 
                 numReportedHostplantFamilies_z,
                 diapauseStage_z, disturbanceAffinity_z) %>%
   dplyr::filter(complete.cases(.))
+
+model.matrix(~0+., data = total_dx_df_model[,5:ncol(total_dx_df_model)]) %>%
+  cor(use = "pairwise.complete.obs") %>%
+  ggcorrplot::ggcorrplot(show.diag = FALSE, type = "lower",
+                         lab = TRUE, lab_size = 4)+
+  colorspace::scale_fill_continuous_diverging(rev=TRUE, name = "Corr.")+
+  scale_x_discrete(labels = c("Ave. Range Precip.", "Diff. Range Temp.",
+                              "Diff. Range Precip.", "Range Size", "Ave. Wingspan",
+                              "# Hostplant Families", "Diapause as Egg", "Diapause as Larva",
+                              "Diapause as Pupa", "Diapause as Adult", "Disturbance Avoidant",
+                              "Disturbance Associated"))+
+  scale_y_discrete(labels = c("Ave. Range Temp.", "Ave. Range Precip.", "Diff. Range Temp.",
+                              "Diff. Range Precip.", "Range Size", "Ave. Wingspan",
+                              "# Hostplant Families", "Diapause as Egg", "Diapause as Larva",
+                              "Diapause as Pupa", "Diapause as Adult", "Disturbance Avoidant",
+                              "Disturbance Associated"))+
+  theme(plot.background = element_rect(fill = "white", color = "white"))
+ggsave2("../../figures/supplemental/trait_correlations.png", dpi=400, height = 8, width=8)
 
 sp_tree <- ape::read.tree("../../data/taxa/SupDryad_treepl.tre")
 sp_tree$tip.label <- str_replace_all(sp_tree$tip.label, "_", " ")
@@ -385,6 +406,38 @@ MODEL_D <- brms::brm(mean~1+
                      cores=5,
                      save_pars = save_pars(all = TRUE))
 saveRDS(MODEL_D, "../../output/modelFiles/200kmPrecip_ModelD.rds")
+
+# TEMPERATURE MODEL (MODEL C2)
+MODEL_C2 <- brms::brm(mean~1+
+                        varPrecip_z,
+                      data=total_dx_df_model,
+                      iter=200000,
+                      warmup=100000,
+                      thin=50,
+                      family=gaussian(),
+                      prior=c(prior(normal(0,10), "Intercept")),
+                      control=list(max_treedepth=15,
+                                   adapt_delta=0.9999),
+                      cores=5,
+                      save_pars = save_pars(all = TRUE))
+saveRDS(MODEL_C2, "../../output/modelFiles/200kmTemp_ModelC2.rds")
+
+# TEMPERATURE + PHYLOGENY MODEL (MODEL D2)
+MODEL_D2 <- brms::brm(mean~1+
+                        varPrecip_z+
+                        (1|gr(species, cov=sp_tree)),
+                      data=total_dx_df_model,
+                      data2=list(sp_tree=sp_tree),
+                      iter=200000,
+                      warmup=100000,
+                      thin=50,
+                      family=gaussian(),
+                      prior=c(prior(normal(0,10), "Intercept")),
+                      control=list(max_treedepth=16,
+                                   adapt_delta=0.99999),
+                      cores=5,
+                      save_pars = save_pars(all = TRUE))
+saveRDS(MODEL_D2, "../../output/modelFiles/200kmTemp_ModelD2.rds")
 
 # RANGE SIZE MODEL (MODEL E)
 MODEL_E <- brms::brm(mean~1+
@@ -569,6 +622,8 @@ loo::loo_compare(loo::loo(MODEL_A, moment_match=TRUE),
                  loo::loo(MODEL_B, moment_match=TRUE),
                  loo::loo(MODEL_C, moment_match=TRUE),
                  loo::loo(MODEL_D, moment_match=TRUE),
+                 loo::loo(MODEL_C2, moment_match=TRUE),
+                 loo::loo(MODEL_D2, moment_match=TRUE),
                  loo::loo(MODEL_E, moment_match=TRUE),
                  loo::loo(MODEL_F, moment_match=TRUE),
                  loo::loo(MODEL_G, moment_match=TRUE),
@@ -598,7 +653,7 @@ ggplot(MODEL_C_LINES,
        mapping=aes(x=rangePrecip_z, y=mean))+
   tidybayes::stat_lineribbon(mapping=aes(y=.prediction),
                              .width=c(0.95, 0.8, 0.5))+
-  scale_fill_brewer(palette="Greens", name="Credible Interval")+
+  scale_fill_brewer(palette="Greens", name="Posterior Predictive Interval")+
   geom_point(data=total_dx_df_model,
              mapping=aes(x=rangePrecip_z, y=mean),
              size=2)+

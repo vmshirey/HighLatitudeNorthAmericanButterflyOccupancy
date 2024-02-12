@@ -195,10 +195,12 @@ range$ave_precip <- ave_precip
 range <- range %>%
   group_by(binomial) %>%
   dplyr::mutate(ave_temp2 = mean(ave_temp, na.rm=TRUE),
-                ave_precip2 = mean(ave_precip, na.rm=TRUE))
+                var_temp2 = diff(range(ave_temp, na.rm=TRUE)),
+                ave_precip2 = mean(ave_precip, na.rm=TRUE),
+                var_precip2 = diff(range(ave_precip, na.rm=TRUE)))
 
 range2 <- range %>% st_drop_geometry() %>%
-  dplyr::select(binomial, ave_temp2, ave_precip2) %>%
+  dplyr::select(binomial, ave_temp2, var_temp2, ave_precip2, var_precip2) %>%
   unique()
 
 range2 <- range2 %>% arrange(binomial) %>%
